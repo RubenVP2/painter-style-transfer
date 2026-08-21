@@ -1,0 +1,13 @@
+**/node_modules
+**/.next
+**/out
+**/build
+**/test-results
+**/playwright-report
+**/blob-report
+**/.playwright
+**/*.tsbuildinfo
+**/.env*
+**/.git
+**/.DS_Store
+web/src/content/prompts

@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink-950: #08080c;
+  --color-ink-900: #0d0e14;
+  --color-ink-850: #12131b;
+  --color-ink-800: #171924;
+  --color-ink-700: #232636;
+  --color-ink-600: #333748;
+  --color-ink-400: #7c8195;
+  --color-ink-200: #b9bdcc;
+  --color-accent: #ff2d55;
+  --color-accent-soft: #ff5c7a;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(1100px 700px at 12% -10%, rgba(255, 45, 85, 0.13), transparent 60%),
+    radial-gradient(900px 600px at 92% 0%, rgba(88, 86, 255, 0.16), transparent 62%),
+    var(--color-ink-950);
+  color: var(--color-ink-200);
+  font-family:
+    Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-white/8 bg-white/3 backdrop-blur-xl;
+  }
+
+  .field-label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-400;
+  }
+
+  /*
+   * Tailwind v4 cannot @apply one custom component class inside another, so the
+   * shared button base is repeated rather than composed.
+   */
+  .btn-primary {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5
+      text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45
+      bg-accent text-white hover:bg-accent-soft;
+  }
+
+  .btn-ghost {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5
+      text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45
+      border border-white/10 bg-white/5 text-ink-200 hover:bg-white/10;
+  }
+}
+
+/* Range inputs get no useful default styling in a dark UI. */
+input[type="range"] {
+  @apply h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/12;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  @apply h-4 w-4 appearance-none rounded-full border-2 border-ink-900 bg-white shadow;
+}
+
+input[type="range"]::-moz-range-thumb {
+  @apply h-4 w-4 appearance-none rounded-full border-2 border-ink-900 bg-white shadow;
+}
+
+input[type="color"] {
+  @apply h-9 w-full cursor-pointer rounded-lg border border-white/10 bg-transparent p-1;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
