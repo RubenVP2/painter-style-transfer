@@ -27,11 +27,11 @@ export function BackgroundControls({
     <Section
       title="Fond"
       action={
-        palette && background.mode === "gradient" ? (
+        palette && background.mode === "gradient" && !background.autoGradient ? (
           <button
             type="button"
             className="cursor-pointer text-xs font-semibold text-accent-soft hover:underline"
-            onClick={() => patch("background", { gradient: palette.dominant })}
+            onClick={() => patch("background", { autoGradient: true })}
           >
             Depuis l&apos;image
           </button>
@@ -75,6 +75,7 @@ export function BackgroundControls({
       ) : null}
 
       {background.mode === "gradient" ? (
+        <>
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="field-label mb-2 block">Haut</span>
@@ -82,7 +83,10 @@ export function BackgroundControls({
               type="color"
               value={background.gradient[0]}
               onChange={(event) =>
-                patch("background", { gradient: [event.target.value, background.gradient[1]] })
+                patch("background", {
+                  autoGradient: false,
+                  gradient: [event.target.value, background.gradient[1]],
+                })
               }
             />
           </label>
@@ -92,11 +96,20 @@ export function BackgroundControls({
               type="color"
               value={background.gradient[1]}
               onChange={(event) =>
-                patch("background", { gradient: [background.gradient[0], event.target.value] })
+                patch("background", {
+                  autoGradient: false,
+                  gradient: [background.gradient[0], event.target.value],
+                })
               }
             />
           </label>
         </div>
+        <p className="text-xs text-ink-600">
+          {background.autoGradient
+            ? "Dégradé dérivé des couleurs dominantes de chaque image du lot."
+            : "Dégradé fixé à la main, identique pour tout le lot."}
+        </p>
+        </>
       ) : null}
 
       {background.mode === "solid" ? (

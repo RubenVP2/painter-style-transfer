@@ -15,15 +15,16 @@ export function Dropzone({ onPick }: { onPick: () => void }) {
             />
           </svg>
         </div>
-        <h2 className="text-base font-semibold text-white">Dépose ton wallpaper</h2>
+        <h2 className="text-base font-semibold text-white">Dépose tes wallpapers</h2>
         <p className="mt-1.5 text-sm text-ink-400">
-          Glisse une image ici, colle-la avec <kbd className="rounded bg-white/10 px-1">⌘V</kbd>, ou
-          parcours tes fichiers.
+          Glisse une ou plusieurs images ici, colle-les avec{" "}
+          <kbd className="rounded bg-white/10 px-1">⌘V</kbd>, ou parcours tes fichiers. Les réglages
+          s&apos;appliquent à tout le lot.
         </p>
         <button type="button" className="btn-primary mt-5 w-full" onClick={onPick}>
-          Choisir une image
+          Choisir des images
         </button>
-        <p className="mt-3 text-xs text-ink-600">PNG, JPG, WebP, AVIF · 25 Mo max</p>
+        <p className="mt-3 text-xs text-ink-600">PNG, JPG, WebP, AVIF · 25 Mo par image · 24 images max</p>
       </div>
     </div>
   );

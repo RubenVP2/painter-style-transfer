@@ -1,6 +1,8 @@
+import { sceneForItem, type WallpaperItem } from "./batch";
 import type { Palette } from "./color";
 import { renderScene } from "./render";
 import { CANVAS_PRESETS, type Scene } from "./scene";
+import { createZip, type Bytes } from "./zip";
 
 export type ExportFormat = "jpeg" | "png";
 
@@ -66,6 +68,68 @@ export function exportFilename(scene: Scene, settings: ExportSettings, width: nu
     .slice(0, 48);
   const extension = settings.format === "png" ? "png" : "jpg";
   return `${base || "wallpaper"}-mockup-${width}x${height}.${extension}`;
+}
+
+/**
+ * Disambiguates names inside an archive: two source files can share a basename
+ * (`export.png` from two folders), and a ZIP with duplicate entries is a trap —
+ * most extractors silently keep one of them.
+ */
+export function uniqueFilenames(names: string[]) {
+  const used = new Set<string>();
+  return names.map((name) => {
+    if (!used.has(name)) {
+      used.add(name);
+      return name;
+    }
+    const dot = name.lastIndexOf(".");
+    const [base, extension] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ""];
+    let counter = 2;
+    let candidate = `${base}-${counter}${extension}`;
+    while (used.has(candidate)) {
+      counter += 1;
+      candidate = `${base}-${counter}${extension}`;
+    }
+    used.add(candidate);
+    return candidate;
+  });
+}
+
+export type BatchProgress = { done: number; total: number };
+
+/**
+ * Renders every wallpaper of the batch with the shared settings and packs the
+ * results into one archive.
+ *
+ * Images are rendered one at a time: a 2160×3840 canvas plus its blob is tens
+ * of megabytes, and holding 24 of those at once is what would actually break a
+ * tab. `signal` lets the UI abandon a long batch between two images.
+ */
+export async function renderBatchArchive(
+  items: WallpaperItem[],
+  scene: Scene,
+  settings: ExportSettings,
+  options: { onProgress?: (progress: BatchProgress) => void; signal?: AbortSignal } = {},
+) {
+  const { width, height } = exportDimensions(scene, settings.multiplier);
+  const names = uniqueFilenames(
+    items.map((item) => exportFilename(sceneForItem(scene, item), settings, width, height)),
+  );
+  const entries: { name: string; data: Bytes }[] = [];
+
+  for (const [index, item] of items.entries()) {
+    if (options.signal?.aborted) throw new DOMException("Export annulé.", "AbortError");
+    const composed = sceneForItem(scene, item);
+    const { blob } = await renderExportBlob(composed, settings, item.palette);
+    entries.push({ name: names[index], data: new Uint8Array(await blob.arrayBuffer()) });
+    options.onProgress?.({ done: index + 1, total: items.length });
+  }
+
+  return { blob: createZip(entries), width, height, count: entries.length };
+}
+
+export function batchArchiveName(count: number, width: number, height: number) {
+  return `mockups-${width}x${height}-${count}.zip`;
 }
 
 export function downloadBlob(blob: Blob, filename: string) {

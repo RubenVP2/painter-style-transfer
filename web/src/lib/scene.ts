@@ -45,6 +45,11 @@ export type Scene = {
     saturation: number;
     solid: string;
     gradient: [string, string];
+    /**
+     * While true the gradient follows each image's own dominant colours; picking
+     * a colour by hand pins it for the whole batch.
+     */
+    autoGradient: boolean;
   };
   device: {
     model: DeviceId;
@@ -86,6 +91,7 @@ export const DEFAULT_SCENE: Scene = {
     saturation: 1.45,
     solid: "#12121a",
     gradient: ["#3b3b6b", "#12121a"],
+    autoGradient: true,
   },
   device: { model: "iphone-16-pro", finish: "natural", scale: 0.74, showFrame: true, shadow: 0.55 },
   lockScreen: {

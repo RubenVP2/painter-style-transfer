@@ -10,6 +10,8 @@ ici. Le contenu du dépôt (`README.md`, `prompts/`) n'est jamais modifié — c
 ## Fonctionnalités
 
 - **Drag & drop**, collage (`⌘V` / `Ctrl+V`) ou sélecteur de fichiers · PNG, JPG, WebP, AVIF
+- **Traitement par lots** : une ou plusieurs images d'un coup, les mêmes réglages appliqués à tout
+  le lot, et un **téléchargement groupé en ZIP**
 - **Fond flouté** dérivé du wallpaper (intensité, luminosité, saturation), ou dégradé extrait des
   couleurs dominantes de l'image, ou couleur unie
 - **iPhone 16 Pro / iPhone 16**, quatre finitions de châssis, taille et ombre réglables
@@ -23,6 +25,33 @@ ici. Le contenu du dépôt (`README.md`, `prompts/`) n'est jamais modifié — c
 
 - **Galerie publique** (`/galerie`) : une vitrine des wallpapers commités dans le dépôt, filtrable
   par peintre, avec téléchargement du fichier d'origine **octet pour octet**
+
+## Traitement par lots
+
+Dépose 1 à **24 images** en une fois (drag & drop, `⌘V`, ou le sélecteur — il est `multiple`). Le
+bandeau sous l'aperçu est le lot : chaque vignette se sélectionne pour la régler, se retire d'un ✕.
+
+**Rien n'est perdu en silence.** Chaque fichier reçu ressort d'un côté ou de l'autre : ajouté au
+lot, ou nommé dans le rapport d'import avec sa raison — pas une image, HEIC non décodable en
+navigateur, plus de 25 Mo, déjà dans le lot, ou au-delà des 24 images. Un fichier illisible
+n'interrompt jamais l'import des autres.
+
+| Réglage | Portée |
+|---|---|
+| Format, fond, appareil, écran verrouillé, export | **Tout le lot** |
+| Recadrage (glisser / molette / double-clic) | **L'image sélectionnée** — il dépend de son cadrage |
+| Dégradé de fond | Dérivé des couleurs de **chaque** image, jusqu'à ce qu'une couleur soit choisie à la main : elle vaut alors pour tout le lot |
+
+Le bouton d'export devient « **Télécharger les N mockups (ZIP)** » dès la deuxième image : chaque
+image est rendue à la résolution choisie, puis empaquetée dans une archive
+`mockups-1080x1920-N.zip`. Les images sont rendues **une à une** (un canvas 2160×3840 et son blob
+pèsent des dizaines de Mo — en garder 24 en vol est ce qui ferait tomber l'onglet), avec une
+progression et un bouton Annuler. « Copier » reste sur l'image sélectionnée.
+
+L'archive est écrite par `src/lib/zip.ts`, **sans dépendance** : méthode « stored », puisque des
+JPG/PNG sont déjà compressés et que les redéflater coûterait du CPU pour une fraction de pourcent.
+Même parti pris que `canvas.toBlob` plutôt que `html-to-image` : le format est simple, la lib ne
+vaut pas son poids dans le bundle.
 
 Le studio se passe entièrement dans le navigateur : aucune image déposée n'est envoyée à un serveur.
 La galerie, elle, sert des fichiers commités — c'est la seule partie qui vit côté serveur.
@@ -169,10 +198,12 @@ précisément la feature centrale ici. `ctx.filter = "blur(…)"` est natif, et
 ```
 src/lib/
   scene.ts       État de la scène + valeurs par défaut
+  batch.ts       Le lot : ingestion + rapport, projection des réglages sur une image
   devices.ts     Géométrie des appareils, en points iOS
   color.ts       Palette dominante + luminance (décide du texte clair/sombre)
   image.ts       Décodage des fichiers déposés
-  export.ts      Rendu hors écran → blob → téléchargement / presse-papiers
+  export.ts      Rendu hors écran → blob → téléchargement / archive / presse-papiers
+  zip.ts         Writer ZIP « stored », sans dépendance
   prompts.ts     Lecture des prompts (build time)
   gallery.ts     Manifeste de la galerie, URL des fichiers, téléchargement du master
   render/
@@ -202,6 +233,11 @@ npm run test:e2e
 
 Les tests vérifient notamment que l'overlay de zones sûres apparaît dans l'aperçu **et disparaît de
 l'export** : le JPG téléchargé est redécodé dans le navigateur puis échantillonné.
+
+`e2e/batch.spec.ts` couvre le lot de bout en bout : le ZIP téléchargé est ouvert côté Node
+(`e2e/zip.ts`, lecteur d'archives « stored »), chaque entrée est redécodée dans le navigateur pour
+vérifier qu'elle sort bien à la résolution demandée avec les réglages communs — et qu'un fichier
+refusé est bien nommé dans le rapport d'import plutôt que disparu.
 
 Côté galerie (`e2e/gallery.spec.ts`), le test qui compte compare le **SHA-256** du fichier téléchargé
 à celui du master sur disque : c'est ce qui prouve la promesse « servi sans recompression ».
