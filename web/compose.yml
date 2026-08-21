@@ -1,0 +1,10 @@
+services:
+  studio:
+    build:
+      # The repository root: the image needs both web/ and prompts/.
+      context: ..
+      dockerfile: web/Dockerfile
+    image: wallpaper-mockup-studio
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
