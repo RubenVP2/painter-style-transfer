@@ -2,6 +2,9 @@
   "name": "wallpaper-mockup-studio",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "predev": "node scripts/sync-prompts.mjs",
     "dev": "next dev",
