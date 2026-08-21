@@ -126,6 +126,22 @@ test.describe("studio", () => {
   });
 });
 
+test.describe("studio sur mobile", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("le canvas d'aperçu a une taille visible et rend le mockup", async ({ page }) => {
+    await page.goto("/");
+    await dropWallpaper(page);
+
+    const stats = await canvasStats(page);
+    // Avant le fix la zone d'aperçu s'effondrait et le canvas restait en 1×1 ;
+    // ici on vérifie qu'il a bien une vraie surface et qu'il dessine le mockup.
+    expect(stats.width).toBeGreaterThan(100);
+    expect(stats.height).toBeGreaterThan(100);
+    expect(stats.colours).toBeGreaterThan(20);
+  });
+});
+
 test("the prompts page lists every prompt in the repository", async ({ page }) => {
   await page.goto("/prompts");
 

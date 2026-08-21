@@ -98,7 +98,7 @@ export function Studio() {
         }}
       />
 
-      <div className="panel relative order-1 min-h-[420px] flex-1 overflow-hidden p-4 lg:order-none lg:min-h-0">
+      <div className="panel relative order-1 h-[70svh] min-h-[420px] overflow-hidden p-4 lg:order-none lg:h-auto lg:min-h-0 lg:flex-1">
         <Stage scene={scene} patch={patch} palette={palette} onFile={(file) => void acceptFile(file)}>
           {scene.wallpaper.bitmap ? null : <Dropzone onPick={openPicker} />}
         </Stage>
