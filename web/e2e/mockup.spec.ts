@@ -5,7 +5,7 @@ const WALLPAPER = { name: "fixture.png", mimeType: "image/png", buffer: wallpape
 
 async function dropWallpaper(page: Page) {
   await page.setInputFiles('[data-testid="wallpaper-input"]', WALLPAPER);
-  await expect(page.getByText("Dépose ton wallpaper")).toBeHidden();
+  await expect(page.getByText("Dépose tes wallpapers")).toBeHidden();
 }
 
 /** Samples the preview canvas so we can tell "drew something" from "stayed blank". */
@@ -62,7 +62,7 @@ test.describe("studio", () => {
   });
 
   test("starts empty and renders a mockup once a wallpaper is dropped", async ({ page }) => {
-    await expect(page.getByText("Dépose ton wallpaper")).toBeVisible();
+    await expect(page.getByText("Dépose tes wallpapers")).toBeVisible();
 
     const before = await canvasStats(page);
     await dropWallpaper(page);

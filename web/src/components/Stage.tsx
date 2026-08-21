@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Palette } from "@/lib/color";
-import { firstImageFile } from "@/lib/image";
+import { imageFiles } from "@/lib/image";
 import { renderScene } from "@/lib/render";
 import { CANVAS_PRESETS, type Scene, type ScenePatch } from "@/lib/scene";
 
@@ -12,13 +12,13 @@ export function Stage({
   scene,
   patch,
   palette,
-  onFile,
+  onFiles,
   children,
 }: {
   scene: Scene;
   patch: ScenePatch;
   palette: Palette | null;
-  onFile: (file: File) => void;
+  onFiles: (files: File[]) => void;
   children?: React.ReactNode;
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -92,21 +92,21 @@ export function Stage({
 
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
-      const file = firstImageFile(
+      const files = imageFiles(
         Array.from(event.clipboardData?.files ?? []).length
           ? event.clipboardData!.files
           : (Array.from(event.clipboardData?.items ?? [])
               .map((item) => item.getAsFile())
               .filter(Boolean) as File[]),
       );
-      if (file) {
+      if (files.length > 0) {
         event.preventDefault();
-        onFile(file);
+        onFiles(files);
       }
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [onFile]);
+  }, [onFiles]);
 
   const pan = useRef<{ id: number; x: number; y: number } | null>(null);
 
@@ -158,8 +158,8 @@ export function Stage({
       onDrop={(event) => {
         event.preventDefault();
         setDragging(false);
-        const file = firstImageFile(event.dataTransfer.files);
-        if (file) onFile(file);
+        // The drop hands over everything; the studio decides what it can keep.
+        onFiles(Array.from(event.dataTransfer.files));
       }}
       className="relative flex h-full w-full items-center justify-center"
     >

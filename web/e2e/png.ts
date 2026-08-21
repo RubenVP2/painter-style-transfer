@@ -58,10 +58,13 @@ export function encodePng(
   ]);
 }
 
-/** A saturated, clearly non-uniform 9:16 wallpaper. */
-export const wallpaperFixture = () =>
+/**
+ * A saturated, clearly non-uniform 9:16 wallpaper. `seed` shifts the hues so a
+ * batch of fixtures is made of visibly different images.
+ */
+export const wallpaperFixture = (seed = 0) =>
   encodePng(270, 480, (x, y) => [
     Math.round(40 + (x / 270) * 215),
     Math.round(20 + (y / 480) * 120),
-    Math.round(120 + Math.sin((x + y) / 24) * 100),
+    Math.round(120 + Math.sin((x + y) / 24 + seed) * 100),
   ]);

@@ -56,13 +56,18 @@ export async function loadImageFile(file: File): Promise<ImageSource> {
   }
 }
 
+/**
+ * Keeps every image-looking file out of a drop or paste payload. Non-images are
+ * dropped here on purpose: the caller reports them, it does not decode them.
+ */
+export function imageFiles(items: FileList | File[] | null | undefined): File[] {
+  if (!items) return [];
+  return Array.from(items).filter(
+    (file) => file.type.startsWith("image/") || /\.(png|jpe?g|webp|avif|gif|heic|heif)$/i.test(file.name),
+  );
+}
+
 /** Picks the first usable image out of a drop or paste payload. */
 export function firstImageFile(items: FileList | File[] | null | undefined) {
-  if (!items) return null;
-  for (const file of Array.from(items)) {
-    if (file.type.startsWith("image/") || /\.(png|jpe?g|webp|avif|gif|heic|heif)$/i.test(file.name)) {
-      return file;
-    }
-  }
-  return null;
+  return imageFiles(items)[0] ?? null;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import type { WallpaperItem } from "@/lib/batch";
 import type { Palette } from "@/lib/color";
 import type { ExportSettings } from "@/lib/export";
 import { CANVAS_PRESET_LIST, type CanvasPresetId, type Scene, type ScenePatch } from "@/lib/scene";
@@ -14,27 +15,36 @@ import { Toggle } from "./Toggle";
 
 export function ControlPanel({
   scene,
+  baseScene,
   patch,
   palette,
+  items,
+  selected,
   exportSettings,
   onExportSettingsChange,
   onPickFile,
   onReset,
 }: {
+  /** The selected image projected onto the shared settings — what the stage draws. */
   scene: Scene;
+  /** The shared settings alone, which the batch export re-projects per image. */
+  baseScene: Scene;
   patch: ScenePatch;
   palette: Palette | null;
+  items: WallpaperItem[];
+  selected: WallpaperItem | null;
   exportSettings: ExportSettings;
   onExportSettingsChange: (settings: ExportSettings) => void;
   onPickFile: () => void;
   onReset: () => void;
 }) {
   const hasImage = Boolean(scene.wallpaper.bitmap);
+  const position = selected ? items.findIndex((item) => item.id === selected.id) + 1 : 0;
 
   return (
     <div className="space-y-3">
       <Section
-        title="Wallpaper"
+        title="Wallpapers"
         action={
           hasImage ? (
             <button
@@ -42,17 +52,18 @@ export function ControlPanel({
               onClick={onReset}
               className="cursor-pointer text-xs font-semibold text-ink-400 hover:text-white"
             >
-              Réinitialiser
+              Tout retirer
             </button>
           ) : null
         }
       >
         <button type="button" className="btn-ghost w-full" onClick={onPickFile}>
-          {hasImage ? "Remplacer l'image" : "Choisir une image"}
+          {hasImage ? "Ajouter des images" : "Choisir des images"}
         </button>
         {hasImage ? (
           <>
             <p className="truncate text-xs text-ink-400" title={scene.wallpaper.name ?? undefined}>
+              {items.length > 1 ? `${position}/${items.length} · ` : ""}
               {scene.wallpaper.name}
             </p>
             <Slider
@@ -66,7 +77,8 @@ export function ControlPanel({
             />
             <p className="text-xs text-ink-600">
               Glisse sur l&apos;aperçu pour recadrer, molette pour zoomer, double-clic pour
-              réinitialiser.
+              réinitialiser. Le recadrage est propre à cette image&nbsp;; tous les autres réglages
+              s&apos;appliquent au lot entier.
             </p>
           </>
         ) : null}
@@ -98,7 +110,9 @@ export function ControlPanel({
       <LockScreenControls scene={scene} patch={patch} />
       <ExportControls
         scene={scene}
+        baseScene={baseScene}
         palette={palette}
+        items={items}
         settings={exportSettings}
         onSettingsChange={onExportSettingsChange}
       />
