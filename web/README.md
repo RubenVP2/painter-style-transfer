@@ -21,7 +21,11 @@ ici. Le contenu du dépôt (`README.md`, `prompts/`) n'est jamais modifié — c
 - **Export JPG** (défaut, qualité réglable) ou **PNG**, en 1080×1920 / 2160×3840, plus les formats
   4:5 et 1:1. Copie presse-papiers également disponible.
 
-Tout se passe dans le navigateur : aucune image n'est envoyée à un serveur.
+- **Galerie publique** (`/galerie`) : une vitrine des wallpapers commités dans le dépôt, filtrable
+  par peintre, avec téléchargement du fichier d'origine **octet pour octet**
+
+Le studio se passe entièrement dans le navigateur : aucune image déposée n'est envoyée à un serveur.
+La galerie, elle, sert des fichiers commités — c'est la seule partie qui vit côté serveur.
 
 ## Démarrer
 
@@ -49,6 +53,67 @@ N'édite jamais `src/content/prompts/` à la main : modifie `../prompts`, puis r
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run test:e2e` | Smoke tests Playwright |
+
+## Galerie
+
+`/galerie` est une page publique : le lien se partage, n'importe qui parcourt les wallpapers et
+télécharge le fichier tel quel. C'est une vitrine partagée, pas un historique local — d'où un
+stockage côté dépôt plutôt que dans le navigateur.
+
+### Ajouter un wallpaper
+
+1. Déposer le fichier dans `web/public/gallery/`, nommé
+   **`<slug-du-prompt>--<titre-en-kebab>.<ext>`** — par exemple
+   `van-gogh--terrasse-de-cafe.png`. Le préfixe doit correspondre à un fichier de `../prompts` :
+   c'est lui qui relie le wallpaper à la fiche du peintre. Formats acceptés : PNG, JPEG, WebP.
+2. `npm run gallery`
+3. Commiter le master, la vignette générée et `src/content/gallery/manifest.json`.
+
+Un titre que le kebab-case rend mal (accents, ponctuation) se corrige dans
+`public/gallery/titles.json` : `{ "van-gogh--terrasse-de-cafe": "Terrasse de café" }`.
+
+| Commande | Rôle |
+|---|---|
+| `npm run gallery` | Régénère ce qui a changé (vignettes WebP 540px, placeholders, manifeste) |
+| `npm run gallery -- --check` | N'écrit rien, sort en erreur si le manifeste est périmé (CI) |
+| `npm run gallery -- --force` | Reconstruit toutes les vignettes |
+
+Le script s'appuie sur `sharp`, en **devDependency uniquement** : ses sorties étant commitées, il
+n'est pas branché sur `prebuild` et un build de déploiement n'en a jamais besoin.
+
+### Pourquoi ce stockage
+
+Le master est servi **sans jamais retraverser un canvas** — « qualité maximale » veut dire les octets
+d'origine, pas une conversion en PNG (ré-encoder une image déjà générée n'ajoute aucune qualité, ça
+multiplie juste le poids). Le seul dérivé est la vignette d'affichage, plus un placeholder flouté de
+~400 octets inline dans le manifeste. Stocker les images en base64 serait le pire des choix : +33 %
+de poids, aucun cache HTTP, tout le contenu dans la charge utile de la page.
+
+Les en-têtes `Cache-Control: …immutable` sur `/gallery/*` (voir `next.config.ts`) supposent qu'un nom
+de fichier donné ne change jamais de contenu. Pour remplacer une image, la renommer.
+
+### Quand migrer vers un stockage objet
+
+Git ne déduplique pas les binaires et n'oublie jamais rien. Avec des wallpapers de 2 à 5 Mo :
+
+| Volume | État |
+|---|---|
+| < 50 fichiers | confortable |
+| 50 – 100 | clone et build qui traînent, image Docker lourde |
+| > 150 | à migrer — le poids est dans l'historique, un `git rm` ne le récupère pas |
+
+La bascule ne touche aucun composant : copier `public/gallery/` vers un bucket R2/S3, vider le
+dossier du dépôt (le manifeste reste, c'est du texte) et poser
+`NEXT_PUBLIC_GALLERY_BASE_URL=https://cdn.exemple.com/gallery`. `galleryAssetUrl()` et
+`downloadWallpaper()` (`src/lib/gallery.ts`) absorbent seuls la différence, y compris le fait que
+l'attribut `download` est ignoré en cross-origin — le téléchargement repasse alors par `fetch`.
+Prévoir côté bucket `Content-Disposition: attachment` et l'en-tête CORS correspondant.
+
+**Git LFS est un piège ici** : Nixpacks et certains builders Dokploy ne lancent pas `git lfs pull`,
+et déploient en silence des fichiers pointeurs de 130 octets à la place des images.
+
+> Les trois wallpapers actuellement commités sont des **exemples** générés par un dégradé, là pour
+> que la page et les tests aient du contenu. Remplace-les par tes vraies images.
 
 ## Docker
 
@@ -109,6 +174,7 @@ src/lib/
   image.ts       Décodage des fichiers déposés
   export.ts      Rendu hors écran → blob → téléchargement / presse-papiers
   prompts.ts     Lecture des prompts (build time)
+  gallery.ts     Manifeste de la galerie, URL des fichiers, téléchargement du master
   render/
     index.ts       renderScene — l'orchestrateur
     background.ts  Flou (avec overscan), dégradé, uni
@@ -136,6 +202,9 @@ npm run test:e2e
 
 Les tests vérifient notamment que l'overlay de zones sûres apparaît dans l'aperçu **et disparaît de
 l'export** : le JPG téléchargé est redécodé dans le navigateur puis échantillonné.
+
+Côté galerie (`e2e/gallery.spec.ts`), le test qui compte compare le **SHA-256** du fichier téléchargé
+à celui du master sur disque : c'est ce qui prouve la promesse « servi sans recompression ».
 
 Si l'environnement fournit un Chromium plus ancien que la version attendue par Playwright, pointe le
 runner dessus au lieu d'en télécharger un :

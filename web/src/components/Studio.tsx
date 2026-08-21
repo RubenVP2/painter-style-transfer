@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { analyseImage, type Palette } from "@/lib/color";
 import { DEFAULT_EXPORT, type ExportSettings } from "@/lib/export";
+import { galleryAssetUrl } from "@/lib/gallery";
 import { ACCEPT_ATTRIBUTE, ImageLoadError, loadImageFile } from "@/lib/image";
 import { DEFAULT_SCENE, type Scene } from "@/lib/scene";
 import { ControlPanel } from "./controls/ControlPanel";
@@ -44,6 +45,35 @@ export function Studio() {
       );
     }
   }, []);
+
+  /**
+   * Deep link from the gallery: `/?w=<filename>` drops that wallpaper straight
+   * into the studio.
+   *
+   * The filename travels in the URL rather than a slug so this never has to
+   * import the manifest — the studio bundle stays free of it however large the
+   * gallery grows. The pattern is what keeps an arbitrary URL out of fetch().
+   */
+  useEffect(() => {
+    const file = new URLSearchParams(window.location.search).get("w");
+    if (!file || !/^[a-z0-9]+(?:-[a-z0-9]+)*--[a-z0-9]+(?:-[a-z0-9]+)*\.(?:png|jpe?g|webp)$/.test(file)) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch(galleryAssetUrl(file));
+        if (!response.ok) throw new Error(String(response.status));
+        const blob = await response.blob();
+        if (!cancelled) await acceptFile(new File([blob], file, { type: blob.type }));
+      } catch {
+        if (!cancelled) setError("Ce wallpaper de la galerie n'a pas pu être chargé.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [acceptFile]);
 
   const openPicker = useCallback(() => inputRef.current?.click(), []);
 

@@ -38,7 +38,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <span className="grid h-7 w-7 place-items-center rounded-lg bg-accent text-[13px] font-bold">
                   W
                 </span>
-                <span className="text-sm font-semibold tracking-tight">Wallpaper Mockup Studio</span>
+                {/* Three nav links leave no room for the name on a phone; the badge
+                    carries the brand there. */}
+                <span className="hidden text-sm font-semibold tracking-tight sm:inline">
+                  Wallpaper Mockup Studio
+                </span>
               </Link>
               <nav className="ml-auto flex items-center gap-1 text-sm">
                 <Link
@@ -46,6 +50,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   className="rounded-lg px-3 py-1.5 font-medium text-ink-200 transition-colors hover:bg-white/8"
                 >
                   Studio
+                </Link>
+                <Link
+                  href="/galerie"
+                  className="rounded-lg px-3 py-1.5 font-medium text-ink-200 transition-colors hover:bg-white/8"
+                >
+                  Galerie
                 </Link>
                 <Link
                   href="/prompts"

@@ -1,0 +1,50 @@
+[
+  {
+    "slug": "claude-monet--exemple-bassin-au-matin",
+    "title": "Exemple · Bassin au matin",
+    "painter": "Claude Monet",
+    "promptSlug": "claude-monet",
+    "file": "claude-monet--exemple-bassin-au-matin.png",
+    "format": "png",
+    "bytes": 309432,
+    "width": 1080,
+    "height": 1920,
+    "thumb": "thumbs/claude-monet--exemple-bassin-au-matin.webp",
+    "thumbWidth": 540,
+    "thumbHeight": 960,
+    "blur": "data:image/webp;base64,UklGRm4AAABXRUJQVlA4IGIAAABQBQCdASoUACQAPtlcpU2/paOiNVv8A/AbCWUAx+Qg3ISf4b4o8KddegY0zPx7tOv3KqAA/tkLhnfTqUyjJHt9iUUmTkAzl0J2hxYu0cXQYWqVasyQJ0xkzsB5gcpvzAAAAA==",
+    "addedAt": "2026-08-21"
+  },
+  {
+    "slug": "hokusai--exemple-vague-au-crepuscule",
+    "title": "Exemple · Vague au crépuscule",
+    "painter": "Katsushika Hokusai",
+    "promptSlug": "hokusai",
+    "file": "hokusai--exemple-vague-au-crepuscule.png",
+    "format": "png",
+    "bytes": 292066,
+    "width": 1080,
+    "height": 1920,
+    "thumb": "thumbs/hokusai--exemple-vague-au-crepuscule.webp",
+    "thumbWidth": 540,
+    "thumbHeight": 960,
+    "blur": "data:image/webp;base64,UklGRoIAAABXRUJQVlA4IHYAAABwBQCdASoUACQAPtVeoU2oJaMiOrZoAQAaiUAVw4LCclxGd+u56J2sbvG1/dSpfGzkwFBgAP7w0p9tYWacNEQPEOq2s+rOLhq9UpEKJoty0ZWDYndOnE50CTU6K/UAVv4xhPdqsMCNlkxr+vg88zWcPAdwsAAA",
+    "addedAt": "2026-08-21"
+  },
+  {
+    "slug": "van-gogh--exemple-nuit-etoilee",
+    "title": "Exemple · Nuit étoilée",
+    "painter": "Vincent van Gogh",
+    "promptSlug": "van-gogh",
+    "file": "van-gogh--exemple-nuit-etoilee.png",
+    "format": "png",
+    "bytes": 259053,
+    "width": 1080,
+    "height": 1920,
+    "thumb": "thumbs/van-gogh--exemple-nuit-etoilee.webp",
+    "thumbWidth": 540,
+    "thumbHeight": 960,
+    "blur": "data:image/webp;base64,UklGRo4AAABXRUJQVlA4IIIAAADwBQCdASoUACQAPtFUoE2oJKMiOrzIAQAaCWYArDOKBExPUlU58YgEqQyANSZFwOavrxQr9yoIAAD+8qn81xq+MKuzjWTqTBIHBnzrlvpvJHgasE6hDbfhzSzoU6O4/QQx+kml3SoyTPYO22KMsH5OJGvb4+RYbTSnXKSDL3KV8egA",
+    "addedAt": "2026-08-21"
+  }
+]
