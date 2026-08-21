@@ -25,15 +25,22 @@ Tout se passe dans le navigateur : aucune image n'est envoyée à un serveur.
 
 ## Démarrer
 
+Node **22 ou plus** (`.nvmrc`, `engines.node` dans `package.json`) — Next.js 16 exige `>=20.9.0` et
+Tailwind 4 `>=20`.
+
 ```bash
 cd web
+nvm use          # facultatif, lit .nvmrc
 npm install
 npm run dev      # http://localhost:3000
 ```
 
 `predev` / `prebuild` lancent `scripts/sync-prompts.mjs`, qui **copie** `../prompts/*.md` dans
-`src/content/prompts/` (gitignoré). C'est une copie en lecture seule : les fichiers source ne sont
-jamais touchés.
+`src/content/prompts/`. C'est une copie en lecture seule : les fichiers source ne sont jamais
+touchés. Cette copie est **commitée**, pour qu'un build dont le contexte se limite à `web/` (Nixpacks,
+Dokploy…) dispose quand même du contenu ; le script la rafraîchit dès que `../prompts` est visible, et
+échoue si ni la source ni la copie n'existent — mieux vaut casser le build que déployer une page vide.
+N'édite jamais `src/content/prompts/` à la main : modifie `../prompts`, puis relance un build.
 
 | Commande | Rôle |
 |---|---|
@@ -64,6 +71,23 @@ Build multi-stage sur `node:22-alpine`, sortie Next.js `standalone`, exécution 
 non-root. Les exclusions de contexte vivent dans `web/Dockerfile.dockerignore` (BuildKit lit
 `<chemin-du-Dockerfile>.dockerignore` en priorité), ce qui évite d'ajouter un `.dockerignore` à la
 racine du dépôt.
+
+## Déploiement (Dokploy, Nixpacks…)
+
+Deux chemins possibles, tous les deux fonctionnels :
+
+| Type de build | Réglages |
+|---|---|
+| **Dockerfile** (recommandé) | Contexte : racine du dépôt · Dockerfile : `web/Dockerfile` |
+| **Nixpacks** | Base / build path : `web` |
+
+En Nixpacks, la version de Node vient de `engines.node` (`>=22`) et de `.nvmrc` : sans elle le
+builder retombe sur Node 18, que Next.js 16 refuse (`You are using Node.js 18.x. For Next.js,
+Node.js version ">=20.9.0" is required.`). Si un builder ignore ces deux fichiers, force la variable
+d'environnement `NIXPACKS_NODE_VERSION=22`.
+
+Ce chemin ne voit pas `../prompts` : c'est la copie commitée dans `src/content/prompts/` qui alimente
+la page `/prompts`. Le service écoute sur `$PORT` (3000 par défaut).
 
 ## Architecture
 
