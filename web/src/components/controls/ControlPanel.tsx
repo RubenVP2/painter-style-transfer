@@ -3,11 +3,13 @@
 import type { WallpaperItem } from "@/lib/batch";
 import type { Palette } from "@/lib/color";
 import type { ExportSettings } from "@/lib/export";
+import type { ParallaxSettings } from "@/lib/parallax";
 import { CANVAS_PRESET_LIST, type CanvasPresetId, type Scene, type ScenePatch } from "@/lib/scene";
 import { BackgroundControls } from "./BackgroundControls";
 import { DeviceControls } from "./DeviceControls";
 import { ExportControls } from "./ExportControls";
 import { LockScreenControls } from "./LockScreenControls";
+import { ParallaxControls } from "./ParallaxControls";
 import { Section } from "./Section";
 import { Segmented } from "./Segmented";
 import { Slider } from "./Slider";
@@ -22,6 +24,8 @@ export function ControlPanel({
   selected,
   exportSettings,
   onExportSettingsChange,
+  parallaxSettings,
+  onParallaxSettingsChange,
   onPickFile,
   onReset,
 }: {
@@ -35,6 +39,8 @@ export function ControlPanel({
   selected: WallpaperItem | null;
   exportSettings: ExportSettings;
   onExportSettingsChange: (settings: ExportSettings) => void;
+  parallaxSettings: ParallaxSettings;
+  onParallaxSettingsChange: (settings: ParallaxSettings) => void;
   onPickFile: () => void;
   onReset: () => void;
 }) {
@@ -108,6 +114,11 @@ export function ControlPanel({
       <BackgroundControls scene={scene} patch={patch} palette={palette} />
       <DeviceControls scene={scene} patch={patch} />
       <LockScreenControls scene={scene} patch={patch} />
+      <ParallaxControls
+        items={items}
+        settings={parallaxSettings}
+        onSettingsChange={onParallaxSettingsChange}
+      />
       <ExportControls
         scene={scene}
         baseScene={baseScene}
