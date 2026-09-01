@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "parallax-service"
+version = "0.1.0"
+description = "FastAPI microservice wrapping DepthFlow (images to 3D parallax videos)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "depthflow",
+    "python-multipart",
+]
+
+[tool.setuptools]
+py-modules = ["service"]

@@ -11,6 +11,7 @@ import {
 import { DEFAULT_EXPORT, type ExportSettings } from "@/lib/export";
 import { galleryAssetUrl } from "@/lib/gallery";
 import { ACCEPT_ATTRIBUTE, imageFiles } from "@/lib/image";
+import { DEFAULT_PARALLAX, type ParallaxSettings } from "@/lib/parallax";
 import { DEFAULT_SCENE, type Scene } from "@/lib/scene";
 import { BatchStrip } from "./BatchStrip";
 import { ControlPanel } from "./controls/ControlPanel";
@@ -24,6 +25,7 @@ export function Studio() {
   const [items, setItems] = useState<WallpaperItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [exportSettings, setExportSettings] = useState<ExportSettings>(DEFAULT_EXPORT);
+  const [parallaxSettings, setParallaxSettings] = useState<ParallaxSettings>(DEFAULT_PARALLAX);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [importing, setImporting] = useState<{ done: number; total: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -231,6 +233,8 @@ export function Studio() {
           selected={selected}
           exportSettings={exportSettings}
           onExportSettingsChange={setExportSettings}
+          parallaxSettings={parallaxSettings}
+          onParallaxSettingsChange={setParallaxSettings}
           onPickFile={openPicker}
           onReset={reset}
         />

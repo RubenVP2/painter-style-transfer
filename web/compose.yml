@@ -1,4 +1,11 @@
 services:
+  parallax:
+    build:
+      context: ./parallax
+    ports:
+      - "8100:8100"
+    restart: unless-stopped
+
   studio:
     build:
       # The repository root: the image needs both web/ and prompts/.
@@ -8,3 +15,6 @@ services:
     ports:
       - "3000:3000"
     restart: unless-stopped
+    environment:
+      # The client bundle reads this at build/dev time to reach the parallax service.
+      NEXT_PUBLIC_PARALLAX_URL: http://localhost:8100
