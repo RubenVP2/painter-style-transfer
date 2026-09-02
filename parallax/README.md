@@ -34,12 +34,26 @@ Renders are serialized (`asyncio.Semaphore(1)`).
 
 ## Run
 
+With the rest of the stack, from the repository root:
+
+```bash
+docker compose up --build parallax
+```
+
+Or on its own:
+
 ```bash
 docker build -t parallax-service ./parallax
 docker run -p 8100:8100 parallax-service
 ```
 
 Build works on `linux/amd64` and `linux/arm64`.
+
+## Configuration
+
+| Variable | Default | Role |
+|---|---|---|
+| `PARALLAX_ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Comma-separated CORS origins — the domains the Studio is opened from. The browser calls this service directly, so a deployed Studio domain has to be listed here. |
 
 ## curl examples
 
