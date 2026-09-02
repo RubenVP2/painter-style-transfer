@@ -1,0 +1,70 @@
+# Pile complète du dépôt : le studio Next.js et le service parallaxe.
+#
+# Ce fichier vit à la RACINE parce que l'image du studio a besoin de `web/` et
+# de `prompts/`, et que celle du parallaxe a besoin de `parallax/` : un contexte
+# limité à `web/` ne peut pas construire la pile (c'est aussi ce que lit Dokploy
+# en type « Compose », qui clone tout le dépôt).
+#
+#   docker compose up --build          # studio sur :3000, parallaxe sur :8100
+#
+# Les deux services parlent au navigateur, pas entre eux : c'est le bundle
+# client du studio qui appelle /health et /render du parallaxe. Le réseau
+# interne ne suffit donc pas — le parallaxe doit être joignable depuis le
+# navigateur, et son URL publique est figée dans le bundle AU BUILD
+# (`NEXT_PUBLIC_*` est inliné par Next), d'où le build arg ci-dessous.
+#
+# En local, les valeurs par défaut suffisent. En déploiement, poser :
+#   PARALLAX_PUBLIC_URL=https://parallax.exemple.com
+#   STUDIO_PUBLIC_ORIGINS=https://studio.exemple.com
+# et relancer un build du studio (changer l'URL change l'image).
+
+services:
+  parallax:
+    build:
+      context: ./parallax
+    image: parallax-service
+    restart: unless-stopped
+    environment:
+      # Origines autorisées par CORS : celles depuis lesquelles le studio est
+      # ouvert dans un navigateur. Séparées par des virgules.
+      PARALLAX_ALLOWED_ORIGINS: ${STUDIO_PUBLIC_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+    ports:
+      - "${PARALLAX_PORT:-8100}:8100"
+    healthcheck:
+      # python-slim n'a ni curl ni wget : l'interpréteur fait l'affaire.
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8100/health', timeout=5).status == 200 else 1)\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      # Le premier import charge torch + depthflow : lent au démarrage à froid.
+      start_period: 180s
+      retries: 5
+    networks:
+      - painter
+
+  studio:
+    build:
+      # La racine du dépôt : l'image a besoin de `web/` ET de `prompts/`.
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        # Inliné dans le bundle client au build — voir l'en-tête de ce fichier.
+        NEXT_PUBLIC_PARALLAX_URL: ${PARALLAX_PUBLIC_URL:-http://localhost:8100}
+    image: wallpaper-mockup-studio
+    restart: unless-stopped
+    depends_on:
+      parallax:
+        # Le studio démarre sans le parallaxe (le panneau affiche un repli),
+        # mais attendre évite une première visite avec le service annoncé mort.
+        condition: service_healthy
+    ports:
+      - "${STUDIO_PORT:-3000}:3000"
+    networks:
+      - painter
+
+networks:
+  painter:
+    driver: bridge

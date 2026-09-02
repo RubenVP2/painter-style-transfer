@@ -147,19 +147,23 @@ et déploient en silence des fichiers pointeurs de 130 octets à la place des im
 ## Docker
 
 Le contexte de build est **la racine du dépôt**, pas `web/` : l'image a besoin de `web/` *et* de
-`prompts/`.
+`prompts/`. Le `docker-compose.yml` de la racine démarre le studio **et** le service parallaxe :
 
 ```bash
-cd web
-docker compose up --build        # http://localhost:3000
+cd ..
+docker compose up --build        # studio :3000, parallaxe :8100
 ```
 
-Ou directement :
+Ou le studio seul :
 
 ```bash
 docker build -f web/Dockerfile -t wallpaper-mockup-studio .
 docker run --rm -p 3000:3000 wallpaper-mockup-studio
 ```
+
+L'URL du service parallaxe (`NEXT_PUBLIC_PARALLAX_URL`) est un **build arg** : Next inline les
+`NEXT_PUBLIC_*` dans le bundle client au build, une variable posée au runtime n'aurait aucun effet.
+Sans elle, le client vise `http://localhost:8100`.
 
 Build multi-stage sur `node:22-alpine`, sortie Next.js `standalone`, exécution sous un utilisateur
 non-root. Les exclusions de contexte vivent dans `web/Dockerfile.dockerignore` (BuildKit lit
@@ -168,12 +172,16 @@ racine du dépôt.
 
 ## Déploiement (Dokploy, Nixpacks…)
 
-Deux chemins possibles, tous les deux fonctionnels :
+Trois chemins possibles, tous fonctionnels :
 
 | Type de build | Réglages |
 |---|---|
-| **Dockerfile** (recommandé) | Contexte : racine du dépôt · Dockerfile : `web/Dockerfile` |
-| **Nixpacks** | Base / build path : `web` |
+| **Compose** (recommandé) | Fichier : `docker-compose.yml` à la racine — déploie le studio *et* le parallaxe |
+| **Dockerfile** | Contexte : racine du dépôt · Dockerfile : `web/Dockerfile` — studio seul |
+| **Nixpacks** | Base / build path : `web` — studio seul |
+
+Le type **Compose** existe précisément parce qu'un build limité à `web/` ne voit ni `../prompts` ni
+`../parallax` : voir la section Déploiement du [README de la racine](../README.md).
 
 En Nixpacks, la version de Node vient de `engines.node` (`>=22`) et de `.nvmrc` : sans elle le
 builder retombe sur Node 18, que Next.js 16 refuse (`You are using Node.js 18.x. For Next.js,
@@ -181,7 +189,9 @@ Node.js version ">=20.9.0" is required.`). Si un builder ignore ces deux fichier
 d'environnement `NIXPACKS_NODE_VERSION=22`.
 
 Ce chemin ne voit pas `../prompts` : c'est la copie commitée dans `src/content/prompts/` qui alimente
-la page `/prompts`. Le service écoute sur `$PORT` (3000 par défaut).
+la page `/prompts`. Le service écoute sur `$PORT` (3000 par défaut). Il ne déploie pas non plus le
+service parallaxe — le panneau vidéo affichera son repli « service indisponible » tant que
+`NEXT_PUBLIC_PARALLAX_URL` ne pointe pas sur une instance joignable.
 
 ## Architecture
 

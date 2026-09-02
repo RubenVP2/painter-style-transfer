@@ -2,6 +2,7 @@
 
 import asyncio
 import math
+import os
 import shutil
 import tempfile
 import zipfile
@@ -20,9 +21,19 @@ app = FastAPI(title="parallax-service", version="0.1.0")
 
 # The Studio (Next.js) lives on another origin; without this the browser blocks
 # both the /health probe and the /render response on real cross-origin setups.
+# Deployments serve the Studio from their own domain, so the list is read from
+# PARALLAX_ALLOWED_ORIGINS (comma-separated) and falls back to the local ports.
+DEFAULT_ALLOWED_ORIGINS = ("http://localhost:3000", "http://127.0.0.1:3000")
+
+allowed_origins = [
+    origin.strip()
+    for origin in os.environ.get("PARALLAX_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+] or list(DEFAULT_ALLOWED_ORIGINS)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
