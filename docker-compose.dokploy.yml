@@ -1,0 +1,90 @@
+# Déploiement Dokploy (type « Compose »).
+#
+# Différence unique mais décisive avec le `docker-compose.yml` de la racine :
+# AUCUN port n'est publié sur l'hôte.
+#
+# Dokploy fait tourner son propre Traefik, qui détient déjà les ports 80/443 de
+# la VPS, et son interface d'administration écoute sur le 3000. Un service qui
+# demande `ports: - "3000:3000"` réclame donc un port que le démon Docker a déjà
+# attribué, et le déploiement casse au démarrage du conteneur :
+#
+#   Bind for 0.0.0.0:3000 failed: port is already allocated
+#
+# Le même conflit attend le 8100 dès qu'un second projet le publie. Publier un
+# port n'apporte de toute façon rien ici : Traefik joint les conteneurs par le
+# réseau `dokploy-network`, pas par l'hôte. `expose` suffit — il documente le
+# port d'écoute sans le réserver sur la machine.
+#
+# ── À régler dans l'interface Dokploy ────────────────────────────────────────
+#
+# Onglet « Domains », un domaine par service — les deux en ont besoin, parce que
+# c'est le NAVIGATEUR qui appelle /health et /render du parallaxe, pas le studio
+# côté serveur (le réseau interne ne suffit donc pas) :
+#
+#   studio    → port 3000   ex. https://studio.exemple.com
+#   parallax  → port 8100   ex. https://parallax.exemple.com
+#
+# Onglet « Environment », les deux services se déclarent l'un à l'autre :
+#
+#   PARALLAX_PUBLIC_URL=https://parallax.exemple.com
+#   STUDIO_PUBLIC_ORIGINS=https://studio.exemple.com
+#
+# Les deux sont obligatoires : un repli sur `localhost` produirait un studio
+# qui semble marcher mais dont le panneau parallaxe échoue chez chaque visiteur.
+#
+# ⚠️ `PARALLAX_PUBLIC_URL` alimente un build arg : Next fige les `NEXT_PUBLIC_*`
+# dans le bundle client AU BUILD. La changer impose un redéploiement AVEC
+# reconstruction du studio, pas un simple redémarrage.
+
+services:
+  parallax:
+    build:
+      context: ./parallax
+    restart: unless-stopped
+    # Pas de `ports:` — voir l'en-tête. Traefik route le domaine vers ce port
+    # par le réseau `dokploy-network`.
+    expose:
+      - "8100"
+    environment:
+      # Origines autorisées par CORS : celles depuis lesquelles le studio est
+      # ouvert dans un navigateur. Séparées par des virgules.
+      PARALLAX_ALLOWED_ORIGINS: ${STUDIO_PUBLIC_ORIGINS:?STUDIO_PUBLIC_ORIGINS est obligatoire (origine publique du studio, ex. https://studio.exemple.com)}
+    healthcheck:
+      # python-slim n'a ni curl ni wget : l'interpréteur fait l'affaire.
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8100/health', timeout=5).status == 200 else 1)\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      # Le premier import charge torch + depthflow : lent au démarrage à froid.
+      start_period: 180s
+      retries: 5
+    networks:
+      - dokploy-network
+
+  studio:
+    build:
+      # La racine du dépôt : l'image a besoin de `web/` ET de `prompts/`.
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        # Inliné dans le bundle client au build — voir l'en-tête de ce fichier.
+        NEXT_PUBLIC_PARALLAX_URL: ${PARALLAX_PUBLIC_URL:?PARALLAX_PUBLIC_URL est obligatoire (URL publique du parallaxe, ex. https://parallax.exemple.com)}
+    restart: unless-stopped
+    expose:
+      - "3000"
+    # Pas de `depends_on` sur la santé du parallaxe, contrairement au compose
+    # local : en production le studio doit rester debout même quand le parallaxe
+    # tombe (torch est gourmand, un OOM est plausible sur une petite VPS). Le
+    # panneau affiche déjà un repli quand /health ne répond pas ; lier les deux
+    # ferait tomber tout le site pour une fonctionnalité secondaire.
+    networks:
+      - dokploy-network
+
+# Réseau créé par Dokploy à son installation : c'est celui où vit son Traefik.
+# `external: true` = ne pas le créer, s'y rattacher.
+networks:
+  dokploy-network:
+    external: true

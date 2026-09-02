@@ -31,6 +31,10 @@ docker compose up --build     # http://localhost:3000
 Le compose vit à la racine parce qu'aucun des deux services ne se construit depuis `web/` seul :
 l'image du studio a besoin de `web/` **et** de `prompts/`, celle du parallaxe de `parallax/`.
 
+Ce fichier publie les ports sur l'hôte, ce qui est pratique en local et **inutilisable sur
+Dokploy** — le déploiement se fait avec `docker-compose.dokploy.yml`, voir
+[Déploiement (Dokploy)](#-déploiement-dokploy).
+
 Les réglages passent par des variables d'environnement (voir `.env.example`, à copier en `.env`) :
 
 | Variable | Défaut | Rôle |
@@ -41,28 +45,68 @@ Les réglages passent par des variables d'environnement (voir `.env.example`, à
 
 ## 🚀 Déploiement (Dokploy)
 
-Un build limité à `web/` ne voit ni `prompts/` ni `parallax/` : c'est exactement ce que le compose de
-la racine règle. Côté Dokploy, créer un service de type **Compose**, pointé sur
-`docker-compose.yml`, et **ne pas** limiter le chemin de build à `web/`.
+Le dépôt porte **deux** compose. Mêmes deux services, mêmes images ; ce qui change tient à la
+façon dont on les joint.
+
+| Fichier | Usage | Ports |
+|---|---|---|
+| `docker-compose.yml` | local | publiés sur l'hôte (`3000`, `8100`) |
+| `docker-compose.dokploy.yml` | Dokploy | **aucun** — Traefik route par `dokploy-network` |
+
+Côté Dokploy, créer un service de type **Compose**, pointé sur `docker-compose.dokploy.yml`, et
+**ne pas** limiter le chemin de build à `web/` : un build limité à `web/` ne voit ni `prompts/` ni
+`parallax/`, c'est exactement ce que le compose de la racine règle.
+
+### Pourquoi un fichier séparé : le conflit de ports
+
+Déployer le `docker-compose.yml` local sur Dokploy échoue au démarrage du conteneur :
+
+```
+Bind for 0.0.0.0:3000 failed: port is already allocated
+Error response from daemon: failed to set up container networking
+```
+
+Dokploy fait tourner **son propre Traefik**, qui détient déjà les ports 80/443 de la VPS, et son
+interface d'administration écoute sur le **3000**. Un service qui demande `ports: - "3000:3000"`
+réclame donc un port que le démon Docker a déjà attribué. Le même conflit attend le `8100` dès
+qu'un second projet le publie.
+
+Publier un port n'apporte de toute façon rien ici : Traefik joint les conteneurs **par le réseau
+Docker `dokploy-network`**, pas par l'hôte. `docker-compose.dokploy.yml` n'a donc que des `expose:`
+— le port d'écoute est documenté, pas réservé sur la machine — et rattache les deux services à ce
+réseau (`external: true`). Rien à décaler, et `docker compose up` reste inchangé en local.
+
+### Domaines et variables
 
 Le studio et le parallaxe ne se parlent pas entre eux : c'est le **navigateur** qui appelle
 `/health` et `/render`. Le réseau interne Docker ne suffit donc pas — les deux services ont besoin
-de leur propre domaine, et il faut les déclarer l'un à l'autre :
+de leur propre domaine (onglet **Domains**, un par service) :
+
+| Service | Port conteneur | Exemple |
+|---|---|---|
+| `studio` | `3000` | `https://studio.exemple.com` |
+| `parallax` | `8100` | `https://parallax.exemple.com` |
+
+… puis il faut les déclarer l'un à l'autre dans l'onglet **Environment** :
 
 ```
 PARALLAX_PUBLIC_URL=https://parallax.exemple.com
 STUDIO_PUBLIC_ORIGINS=https://studio.exemple.com
 ```
 
-Dokploy publie les services via son propre Traefik : si les ports `3000`/`8100` sont déjà pris sur
-l'hôte, les déplacer avec `STUDIO_PORT` / `PARALLAX_PORT` plutôt que de retirer les `ports:` — c'est
-aussi ce qui garde `docker compose up` utilisable en local.
+Les deux sont **obligatoires** dans ce fichier (`${VAR:?…}`) : le compose refuse de démarrer sans
+elles plutôt que de retomber sur `localhost`, ce qui donnerait un studio qui semble marcher mais
+dont le panneau parallaxe échoue chez chaque visiteur.
 
 ⚠️ `PARALLAX_PUBLIC_URL` alimente un **build arg** (`NEXT_PUBLIC_PARALLAX_URL`) : Next fige les
-`NEXT_PUBLIC_*` dans le bundle client au moment du build. La modifier impose un **rebuild** du
-studio, pas un simple redémarrage.
+`NEXT_PUBLIC_*` dans le bundle client au moment du build. La modifier impose un **redéploiement
+avec reconstruction** du studio, pas un simple redémarrage.
 
 `STUDIO_PUBLIC_ORIGINS` est lu au runtime par le parallaxe, un redémarrage suffit.
+
+Dernière différence, volontaire : le compose Dokploy ne fait pas attendre le studio après la santé
+du parallaxe. En production, un OOM du parallaxe (torch est gourmand) ne doit pas emporter tout le
+site — le panneau affiche déjà un repli quand `/health` ne répond pas.
 
 ## 🧩 Anatomie des prompts
 
