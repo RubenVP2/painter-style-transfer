@@ -22,10 +22,13 @@ export function ParallaxControls({
   items,
   settings,
   onSettingsChange,
+  onOpenPreview,
 }: {
   items: WallpaperItem[];
   settings: ParallaxSettings;
   onSettingsChange: (settings: ParallaxSettings) => void;
+  /** Opens the live preview for the selected wallpaper. */
+  onOpenPreview: () => void;
 }) {
   const [available, setAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -139,6 +142,19 @@ export function ParallaxControls({
         checked={settings.invertDepth}
         onChange={(invertDepth) => patch("invertDepth", invertDepth)}
       />
+
+      <button
+        type="button"
+        className="btn-ghost w-full"
+        data-testid="parallax-preview-button"
+        disabled={items.length === 0}
+        onClick={onOpenPreview}
+      >
+        Aperçu live
+      </button>
+      <p className="text-xs text-ink-600">
+        Prévisualise l&apos;effet en temps réel à partir de la profondeur, sans générer la vidéo.
+      </p>
 
       <div className="grid grid-cols-[1fr_auto] gap-2">
         <button

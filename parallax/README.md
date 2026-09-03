@@ -32,6 +32,19 @@ Response:
 
 Renders are serialized (`asyncio.Semaphore(1)`).
 
+### `POST /depth`
+
+Multipart form with a single `image` field. Runs only the depth estimator (the
+same one `/render` feeds) and returns the depthmap as a grayscale `image/png`,
+min-max normalised, near planes bright.
+
+This is the cheap half of a render — no ffmpeg — so the Studio's **live preview**
+can fetch it once per image and animate a WebGL depth-displacement in real time,
+against the same camera presets as `/render`. The customisation loop never waits
+on a full render; `/render` is only called once the settings are dialled in.
+
+Serialized on the same GPU lock as `/render`.
+
 ## Run
 
 With the rest of the stack, from the repository root:
@@ -99,6 +112,12 @@ Multiple images → zip:
 curl -f http://localhost:8100/render \
   -F image=@a.jpg -F image=@b.jpg -F animation=dolly \
   -o parallax.zip
+```
+
+Depthmap only (drives the live preview):
+
+```bash
+curl -f http://localhost:8100/depth -F image=@photo.jpg -o depth.png
 ```
 
 Health check:

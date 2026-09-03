@@ -16,6 +16,7 @@ import { DEFAULT_SCENE, type Scene } from "@/lib/scene";
 import { BatchStrip } from "./BatchStrip";
 import { ControlPanel } from "./controls/ControlPanel";
 import { Dropzone } from "./Dropzone";
+import { ParallaxPreview } from "./ParallaxPreview";
 import { Stage } from "./Stage";
 
 type Notice = { added: number; rejected: RejectedFile[] };
@@ -26,6 +27,7 @@ export function Studio() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [exportSettings, setExportSettings] = useState<ExportSettings>(DEFAULT_EXPORT);
   const [parallaxSettings, setParallaxSettings] = useState<ParallaxSettings>(DEFAULT_PARALLAX);
+  const [parallaxPreview, setParallaxPreview] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [importing, setImporting] = useState<{ done: number; total: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -168,6 +170,7 @@ export function Studio() {
     setItems([]);
     setSelectedId(null);
     setScene(DEFAULT_SCENE);
+    setParallaxPreview(false);
     setNotice(null);
     if (inputRef.current) inputRef.current.value = "";
   }, []);
@@ -210,6 +213,16 @@ export function Studio() {
               )}
             </div>
           ) : null}
+
+          {parallaxPreview && selected ? (
+            <ParallaxPreview
+              key={selected.id}
+              source={selected.bitmap}
+              name={selected.name}
+              settings={parallaxSettings}
+              onClose={() => setParallaxPreview(false)}
+            />
+          ) : null}
         </div>
 
         {items.length > 0 ? (
@@ -235,6 +248,7 @@ export function Studio() {
           onExportSettingsChange={setExportSettings}
           parallaxSettings={parallaxSettings}
           onParallaxSettingsChange={setParallaxSettings}
+          onOpenParallaxPreview={() => setParallaxPreview(true)}
           onPickFile={openPicker}
           onReset={reset}
         />

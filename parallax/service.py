@@ -17,12 +17,18 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 app = FastAPI(title="parallax-service", version="0.1.0")
 
-# Serialize renders: the depth model + GPU can only handle one at a time.
+# Serialize GPU work (renders and depth estimates alike): the depth model + GPU
+# can only handle one at a time.
 _render_lock: asyncio.Semaphore = asyncio.Semaphore(1)
+
+# The depth estimator is expensive to build (loads a torch model), so the /depth
+# endpoint keeps one around between requests. Populated lazily inside the
+# executor, guarded by _render_lock, so no extra locking is needed here.
+_estimator = None
 
 ANIMATIONS = ("circle", "horizontal", "vertical", "zoom", "dolly", "orbital")
 FPS_CHOICES = (24, 30, 60)
@@ -139,6 +145,35 @@ def _render_batch(
     return outputs
 
 
+def _estimate_depth_png(image: Path) -> bytes:
+    """Estimate the depthmap for one image and encode it as a grayscale PNG.
+
+    This is the exact estimator DepthFlow feeds into the render, so the live
+    preview built from this map matches what /render will produce — only the
+    ffmpeg encode is skipped, which is the slow part. The map is min-max
+    normalised to the full 0..255 range so faint depth still reads in the
+    browser; near planes stay bright (high value), matching DepthFlow's own
+    convention (and its invert_depth flag, which the client mirrors).
+    """
+    global _estimator
+
+    import imageio.v3 as imageio
+    import numpy as np
+
+    if _estimator is None:
+        from depthflow.scene import DepthScene
+
+        _estimator = DepthScene(backend="headless").estimator
+
+    array = imageio.imread(image)
+    depth = np.asarray(_estimator.estimate(array), dtype=np.float32)
+    lo = float(depth.min()) if depth.size else 0.0
+    hi = float(depth.max()) if depth.size else 0.0
+    norm = (depth - lo) / (hi - lo) if hi > lo else np.zeros_like(depth)
+    gray = (norm * 255.0).round().astype(np.uint8)
+    return imageio.imwrite("<bytes>", gray, extension=".png")
+
+
 @app.get("/health")
 async def health() -> dict:
     """Liveness probe with the wrapped DepthFlow version (if importable)."""
@@ -149,6 +184,32 @@ async def health() -> dict:
     except Exception:  # pragma: no cover - depthflow absent in test/dev
         version = None
     return {"status": "ok", "depthflow": version}
+
+
+@app.post("/depth")
+async def depth(
+    image: Annotated[UploadFile, File(description="A single input image")],
+) -> Response:
+    """Estimate a depthmap and return it as a grayscale PNG.
+
+    Powers the Studio's live parallax preview: the browser fetches this once per
+    image, then animates a depth-displacement in WebGL against the same camera
+    presets as /render. No video is encoded here, so it answers in a fraction of
+    a full render — the customisation loop never has to wait on ffmpeg.
+    """
+    loop = asyncio.get_running_loop()
+    async with _render_lock:
+        workdir = Path(tempfile.mkdtemp(prefix="parallax-depth-"))
+        try:
+            suffix = Path(image.filename or "image.png").suffix or ".png"
+            target = workdir / f"input{suffix}"
+            with open(target, "wb") as fh:
+                shutil.copyfileobj(image.file, fh)
+            png = await loop.run_in_executor(None, _estimate_depth_png, target)
+        finally:
+            shutil.rmtree(workdir, ignore_errors=True)
+
+    return Response(content=png, media_type="image/png")
 
 
 @app.post("/render")

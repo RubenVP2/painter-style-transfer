@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { wallpaperFixture } from "./png";
+import { encodePng, wallpaperFixture } from "./png";
+
+// A gradient stands in for the estimated depthmap: the preview only needs a
+// decodable image to texture, it never inspects the values.
+const FAKE_DEPTH = encodePng(64, 114, (_x, y) => {
+  const v = Math.round((y / 114) * 255);
+  return [v, v, v];
+});
 
 // A fake but structurally valid MP4: the client only downloads bytes, it never
 // decodes them, so the signature is enough to assert the flow end to end.
@@ -68,5 +75,32 @@ test.describe("vidéo parallaxe", () => {
 
   test("the button stays disabled without any image", async ({ page }) => {
     await expect(page.getByTestId("parallax-generate-button")).toBeDisabled();
+  });
+
+  test("the live preview button stays disabled without any image", async ({ page }) => {
+    await expect(page.getByTestId("parallax-preview-button")).toBeDisabled();
+  });
+
+  test("opens a live preview that fetches a depthmap, then closes", async ({ page }) => {
+    let depthRequests = 0;
+    await page.route(/\/depth$/, async (route) => {
+      depthRequests += 1;
+      await route.fulfill({ status: 200, contentType: "image/png", body: FAKE_DEPTH });
+    });
+
+    await page.setInputFiles('[data-testid="wallpaper-input"]', [
+      { name: "un.png", mimeType: "image/png", buffer: wallpaperFixture(0) },
+    ]);
+
+    await page.getByTestId("parallax-preview-button").click();
+    await expect(page.getByTestId("parallax-preview")).toBeVisible();
+
+    // The depthmap is requested once for the wallpaper; the preview then settles
+    // out of the loading state (rendered canvas, or a message if WebGL is absent).
+    await expect.poll(() => depthRequests).toBeGreaterThan(0);
+    await expect(page.getByTestId("parallax-preview-loading")).toBeHidden();
+
+    await page.getByTestId("parallax-preview-close").click();
+    await expect(page.getByTestId("parallax-preview")).toBeHidden();
   });
 });
