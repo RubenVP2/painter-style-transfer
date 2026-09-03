@@ -65,7 +65,7 @@ export async function checkParallaxHealth(signal?: AbortSignal) {
  * Anything the batch can hold (ImageBitmap, or an HTMLImageElement fallback in
  * browsers without createImageBitmap) — redrawn onto a canvas below either way.
  */
-async function sourceToBlob(source: ImageSource): Promise<Blob> {
+export async function sourceToBlob(source: ImageSource): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = source.width;
   canvas.height = source.height;

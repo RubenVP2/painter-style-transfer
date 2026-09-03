@@ -103,3 +103,22 @@ def test_invalid_choice_rejected(client, field, value):
 def test_missing_image_rejected(client):
     response = client.post("/render", data=_browser_form())
     assert response.status_code == 422
+
+
+@pytest.fixture
+def depth_client(monkeypatch):
+    """A TestClient whose depth estimate returns a stub PNG (no torch needed)."""
+    monkeypatch.setattr(service, "_estimate_depth_png", lambda image: PNG)
+    return TestClient(service.app)
+
+
+def test_depth_returns_png(depth_client):
+    response = depth_client.post("/depth", files=_one_image())
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"] == "image/png"
+    assert response.content == PNG
+
+
+def test_depth_missing_image_rejected(depth_client):
+    response = depth_client.post("/depth")
+    assert response.status_code == 422

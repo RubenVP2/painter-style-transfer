@@ -39,6 +39,21 @@ Le **navigateur n'appelle que le studio** : le panneau parallaxe tape `/api/para
 l'origine du studio, qui relaie côté serveur vers le parallaxe par le réseau interne. Le parallaxe
 reste donc privé — pas de domaine public à lui, pas de CORS.
 
+Le parallaxe expose trois routes, toutes relayées par le studio : `/health` (sonde), `/render`
+(image → vidéo MP4, l'étape lente qui encode avec ffmpeg) et `/depth` (image → carte de profondeur
+PNG, l'estimation seule, rapide).
+
+### 👀 Aperçu live
+
+Le bouton **Aperçu live** du panneau parallaxe prévisualise l'effet **en temps réel dans le
+navigateur**, sans générer la vidéo : le studio récupère une fois la carte de profondeur via
+`/depth`, puis anime un displacement WebGL avec exactement la même math de caméra que le service
+(`parallax/service.py`). On règle animation / intensité / durée / profondeur inversée et on voit le
+résultat bouger instantanément ; on ne lance `/render` (le rendu MP4) qu'une fois le réglage validé.
+L'aperçu est une **approximation temps réel** du rendu (displacement en une passe, non ray-marché) :
+la trajectoire, la séparation de profondeur et l'inversion sont fidèles, le pixel exact reste
+l'affaire de la vidéo finale.
+
 Les réglages passent par des variables d'environnement (voir `.env.example`, à copier en `.env`) :
 
 | Variable | Défaut | Rôle |

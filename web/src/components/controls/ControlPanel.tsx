@@ -26,6 +26,7 @@ export function ControlPanel({
   onExportSettingsChange,
   parallaxSettings,
   onParallaxSettingsChange,
+  onOpenParallaxPreview,
   onPickFile,
   onReset,
 }: {
@@ -41,6 +42,7 @@ export function ControlPanel({
   onExportSettingsChange: (settings: ExportSettings) => void;
   parallaxSettings: ParallaxSettings;
   onParallaxSettingsChange: (settings: ParallaxSettings) => void;
+  onOpenParallaxPreview: () => void;
   onPickFile: () => void;
   onReset: () => void;
 }) {
@@ -118,6 +120,7 @@ export function ControlPanel({
         items={items}
         settings={parallaxSettings}
         onSettingsChange={onParallaxSettingsChange}
+        onOpenPreview={onOpenParallaxPreview}
       />
       <ExportControls
         scene={scene}
