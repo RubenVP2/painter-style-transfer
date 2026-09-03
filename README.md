@@ -35,13 +35,16 @@ Ce fichier publie les ports sur l'hôte, ce qui est pratique en local et **inuti
 Dokploy** — le déploiement se fait avec `docker-compose.dokploy.yml`, voir
 [Déploiement (Dokploy)](#-déploiement-dokploy).
 
+Le **navigateur n'appelle que le studio** : le panneau parallaxe tape `/api/parallax/*` sur
+l'origine du studio, qui relaie côté serveur vers le parallaxe par le réseau interne. Le parallaxe
+reste donc privé — pas de domaine public à lui, pas de CORS.
+
 Les réglages passent par des variables d'environnement (voir `.env.example`, à copier en `.env`) :
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `PARALLAX_PUBLIC_URL` | `http://localhost:8100` | URL du parallaxe **telle que le navigateur la joint** |
-| `STUDIO_PUBLIC_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Origines autorisées par le CORS du parallaxe |
-| `STUDIO_PORT` / `PARALLAX_PORT` | `3000` / `8100` | Ports publiés sur l'hôte |
+| `PARALLAX_INTERNAL_URL` | `http://parallax:8100` | URL du parallaxe **telle que le studio la joint côté serveur** (réseau interne) |
+| `STUDIO_PORT` / `PARALLAX_PORT` | `3000` / `8100` | Ports publiés sur l'hôte (le `8100` n'y sert qu'au debug direct) |
 
 ## 🚀 Déploiement (Dokploy)
 
@@ -50,7 +53,7 @@ façon dont on les joint.
 
 | Fichier | Usage | Ports |
 |---|---|---|
-| `docker-compose.yml` | local | publiés sur l'hôte (`3000`, `8100`) |
+| `docker-compose.yml` | local | publiés sur l'hôte (`3000` ; `8100` pour le debug) |
 | `docker-compose.dokploy.yml` | Dokploy | **aucun** — Traefik route par `dokploy-network` |
 
 Côté Dokploy, créer un service de type **Compose**, pointé sur `docker-compose.dokploy.yml`, et
@@ -78,35 +81,29 @@ réseau (`external: true`). Rien à décaler, et `docker compose up` reste incha
 
 ### Domaines et variables
 
-Le studio et le parallaxe ne se parlent pas entre eux : c'est le **navigateur** qui appelle
-`/health` et `/render`. Le réseau interne Docker ne suffit donc pas — les deux services ont besoin
-de leur propre domaine (onglet **Domains**, un par service) :
+Le **navigateur n'appelle que le studio** : le panneau parallaxe tape `/api/parallax/*` sur
+l'origine du studio, qui relaie ces requêtes vers le parallaxe **côté serveur**, par le réseau
+interne. Un seul domaine à créer (onglet **Domains**), pour le studio :
 
 | Service | Port conteneur | Exemple |
 |---|---|---|
 | `studio` | `3000` | `https://studio.exemple.com` |
-| `parallax` | `8100` | `https://parallax.exemple.com` |
+| `parallax` | `8100` | *aucun domaine — privé, joint par le réseau interne* |
 
-… puis il faut les déclarer l'un à l'autre dans l'onglet **Environment** :
+Rien d'obligatoire dans l'onglet **Environment** : `PARALLAX_INTERNAL_URL` a pour défaut le nom de
+service compose du parallaxe. Ne le poser que pour pointer ailleurs :
 
 ```
-PARALLAX_PUBLIC_URL=https://parallax.exemple.com
-STUDIO_PUBLIC_ORIGINS=https://studio.exemple.com
+PARALLAX_INTERNAL_URL=http://parallax:8100   # défaut
 ```
 
-Les deux sont **obligatoires** dans ce fichier (`${VAR:?…}`) : le compose refuse de démarrer sans
-elles plutôt que de retomber sur `localhost`, ce qui donnerait un studio qui semble marcher mais
-dont le panneau parallaxe échoue chez chaque visiteur.
-
-⚠️ `PARALLAX_PUBLIC_URL` alimente un **build arg** (`NEXT_PUBLIC_PARALLAX_URL`) : Next fige les
-`NEXT_PUBLIC_*` dans le bundle client au moment du build. La modifier impose un **redéploiement
-avec reconstruction** du studio, pas un simple redémarrage.
-
-`STUDIO_PUBLIC_ORIGINS` est lu au runtime par le parallaxe, un redémarrage suffit.
+✅ C'est une variable de **runtime** : plus aucun `NEXT_PUBLIC_*` figé dans le bundle client, donc
+la changer n'impose plus de reconstruire le studio — un redémarrage suffit. Et comme le parallaxe
+n'est plus joint depuis le navigateur, il n'a **ni domaine public ni CORS** à configurer.
 
 Dernière différence, volontaire : le compose Dokploy ne fait pas attendre le studio après la santé
 du parallaxe. En production, un OOM du parallaxe (torch est gourmand) ne doit pas emporter tout le
-site — le panneau affiche déjà un repli quand `/health` ne répond pas.
+site — le panneau affiche déjà un repli quand `/api/parallax/health` ne répond pas.
 
 ## 🧩 Anatomie des prompts
 

@@ -10,45 +10,37 @@
 #
 #   Bind for 0.0.0.0:3000 failed: port is already allocated
 #
-# Le même conflit attend le 8100 dès qu'un second projet le publie. Publier un
-# port n'apporte de toute façon rien ici : Traefik joint les conteneurs par le
-# réseau `dokploy-network`, pas par l'hôte. `expose` suffit — il documente le
-# port d'écoute sans le réserver sur la machine.
+# Publier un port n'apporte de toute façon rien ici : Traefik joint les
+# conteneurs par le réseau `dokploy-network`, pas par l'hôte. `expose` suffit —
+# il documente le port d'écoute sans le réserver sur la machine.
 #
 # ── À régler dans l'interface Dokploy ────────────────────────────────────────
 #
-# Onglet « Domains », un domaine par service — les deux en ont besoin, parce que
-# c'est le NAVIGATEUR qui appelle /health et /render du parallaxe, pas le studio
-# côté serveur (le réseau interne ne suffit donc pas) :
+# Onglet « Domains » : UN SEUL domaine, pour le studio. Le navigateur n'appelle
+# que le studio ; c'est lui qui relaie /api/parallax/* vers le parallaxe côté
+# serveur, par le réseau interne. Le parallaxe n'a donc PAS besoin de domaine
+# public (ni de CORS) :
 #
-#   studio    → port 3000   ex. https://studio.exemple.com
-#   parallax  → port 8100   ex. https://parallax.exemple.com
+#   studio → port 3000   ex. https://studio.exemple.com
 #
-# Onglet « Environment », les deux services se déclarent l'un à l'autre :
+# Onglet « Environment » : rien d'obligatoire. `PARALLAX_INTERNAL_URL` a pour
+# défaut le nom de service compose du parallaxe et n'a besoin d'être posé que
+# pour pointer ailleurs :
 #
-#   PARALLAX_PUBLIC_URL=https://parallax.exemple.com
-#   STUDIO_PUBLIC_ORIGINS=https://studio.exemple.com
+#   PARALLAX_INTERNAL_URL=http://parallax:8100   (défaut)
 #
-# Les deux sont obligatoires : un repli sur `localhost` produirait un studio
-# qui semble marcher mais dont le panneau parallaxe échoue chez chaque visiteur.
-#
-# ⚠️ `PARALLAX_PUBLIC_URL` alimente un build arg : Next fige les `NEXT_PUBLIC_*`
-# dans le bundle client AU BUILD. La changer impose un redéploiement AVEC
-# reconstruction du studio, pas un simple redémarrage.
+# C'est une variable de RUNTIME (plus de `NEXT_PUBLIC_*` inliné au build) : la
+# changer n'impose plus de reconstruire le studio.
 
 services:
   parallax:
     build:
       context: ./parallax
     restart: unless-stopped
-    # Pas de `ports:` — voir l'en-tête. Traefik route le domaine vers ce port
-    # par le réseau `dokploy-network`.
+    # Pas de `ports:` ni de domaine — le studio le joint par le réseau interne.
+    # `expose` documente le port d'écoute sans le réserver sur l'hôte.
     expose:
       - "8100"
-    environment:
-      # Origines autorisées par CORS : celles depuis lesquelles le studio est
-      # ouvert dans un navigateur. Séparées par des virgules.
-      PARALLAX_ALLOWED_ORIGINS: ${STUDIO_PUBLIC_ORIGINS:?STUDIO_PUBLIC_ORIGINS est obligatoire (origine publique du studio, ex. https://studio.exemple.com)}
     healthcheck:
       # python-slim n'a ni curl ni wget : l'interpréteur fait l'affaire.
       test:
@@ -69,17 +61,19 @@ services:
       # La racine du dépôt : l'image a besoin de `web/` ET de `prompts/`.
       context: .
       dockerfile: web/Dockerfile
-      args:
-        # Inliné dans le bundle client au build — voir l'en-tête de ce fichier.
-        NEXT_PUBLIC_PARALLAX_URL: ${PARALLAX_PUBLIC_URL:?PARALLAX_PUBLIC_URL est obligatoire (URL publique du parallaxe, ex. https://parallax.exemple.com)}
     restart: unless-stopped
     expose:
       - "3000"
+    environment:
+      # URL du parallaxe telle que le studio la joint côté serveur, par le
+      # réseau `dokploy-network`. Variable de runtime : pas de rebuild pour la
+      # changer. Défaut = nom de service compose du parallaxe.
+      PARALLAX_INTERNAL_URL: ${PARALLAX_INTERNAL_URL:-http://parallax:8100}
     # Pas de `depends_on` sur la santé du parallaxe, contrairement au compose
     # local : en production le studio doit rester debout même quand le parallaxe
     # tombe (torch est gourmand, un OOM est plausible sur une petite VPS). Le
-    # panneau affiche déjà un repli quand /health ne répond pas ; lier les deux
-    # ferait tomber tout le site pour une fonctionnalité secondaire.
+    # panneau affiche déjà un repli quand /api/parallax/health ne répond pas ;
+    # lier les deux ferait tomber tout le site pour une fonctionnalité secondaire.
     networks:
       - dokploy-network
 

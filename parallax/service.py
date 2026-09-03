@@ -1,94 +1,90 @@
-"""FastAPI microservice wrapping DepthFlow: images -> 3D parallax videos."""
+"""FastAPI microservice wrapping DepthFlow: images -> 3D parallax videos.
+
+The Studio never calls this service from the browser: it proxies /health and
+/render server-side over the docker internal network (see web/src/app/api/
+parallax/*). That keeps the service private — no public domain, no CORS.
+
+`depthflow` (and the torch stack it pulls in) is imported lazily, inside the
+functions that need it, so the module stays importable — and the request
+validation stays testable — without those heavy, GPU-oriented dependencies.
+"""
 
 import asyncio
-import math
-import os
 import shutil
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
-import depthflow
-from attrs import define
-from depthflow.scene import DepthScene
-from depthflow.state import DepthState
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 app = FastAPI(title="parallax-service", version="0.1.0")
 
-# The Studio (Next.js) lives on another origin; without this the browser blocks
-# both the /health probe and the /render response on real cross-origin setups.
-# Deployments serve the Studio from their own domain, so the list is read from
-# PARALLAX_ALLOWED_ORIGINS (comma-separated) and falls back to the local ports.
-DEFAULT_ALLOWED_ORIGINS = ("http://localhost:3000", "http://127.0.0.1:3000")
-
-allowed_origins = [
-    origin.strip()
-    for origin in os.environ.get("PARALLAX_ALLOWED_ORIGINS", "").split(",")
-    if origin.strip()
-] or list(DEFAULT_ALLOWED_ORIGINS)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Serialize renders: the depth model + GPU can only handle one at a time.
 _render_lock: asyncio.Semaphore = asyncio.Semaphore(1)
 
-Animation = Literal["circle", "horizontal", "vertical", "zoom", "dolly", "orbital"]
+ANIMATIONS = ("circle", "horizontal", "vertical", "zoom", "dolly", "orbital")
+FPS_CHOICES = (24, 30, 60)
+HEIGHT_CHOICES = (720, 1080, 1440, 1920)
+SSAA_CHOICES = (1.0, 1.5, 2.0)
 
 
-@define
-class ParallaxScene(DepthScene):
-    """DepthScene subclass implementing the official animation presets."""
+def _build_scene(animation: str, intensity: float):
+    """Construct the DepthScene subclass. Imported here so the module loads
+    (and the endpoint validates) without depthflow/torch installed."""
+    import math as _math
 
-    animation: str = "circle"
-    intensity: float = 0.5
+    from attrs import define
+    from depthflow.scene import DepthScene
 
-    def update(self) -> None:
-        """Drive camera state each frame, mirroring depthflow's examples/presets."""
-        i = self.intensity
-        # Amplitude scale so that intensity=0.5 reproduces the official presets.
-        k = 2.0 * i
-        cycle = self.cycle
+    @define
+    class ParallaxScene(DepthScene):
+        """DepthScene subclass implementing the official animation presets."""
 
-        if self.animation == "circle":
-            self.state.isometric = 0.60
-            self.state.steady = 0.30
-            self.state.offset = (
-                k * 0.50 * math.sin(cycle + math.pi / 2.0),
-                k * 0.50 * math.sin(cycle),
-            )
-        elif self.animation == "horizontal":
-            self.state.isometric = 0.60
-            self.state.steady = 0.30
-            self.state.offset = (k * 0.80 * math.sin(cycle), 0.0)
-        elif self.animation == "vertical":
-            self.state.isometric = 0.60
-            self.state.steady = 0.30
-            self.state.offset = (0.0, k * 0.80 * math.sin(cycle))
-        elif self.animation == "zoom":
-            self.state.height = 0.8 * (math.sin(cycle / 2.0) ** 2.0)
-        elif self.animation == "dolly":
-            self.state.height = 0.30
-            self.state.steady = 0.35
-            self.state.focus = 0.35
-            self.state.zoom = 0.95
-            self.state.isometric = 0.5 * (1.0 - math.cos(cycle))
-        elif self.animation == "orbital":
-            self.state.steady = 0.30
-            self.state.focus = 0.30
-            self.state.zoom = 0.98
-            self.state.isometric = 0.50 * math.cos(cycle) + 0.75
-            self.state.offset = (k * 0.50 * math.sin(cycle), 0.0)
-        else:  # pragma: no cover - guarded by request validation
-            raise ValueError(f"Unknown animation: {self.animation}")
+        animation: str = "circle"
+        intensity: float = 0.5
+
+        def update(self) -> None:
+            """Drive camera state each frame, mirroring depthflow's presets."""
+            i = self.intensity
+            # Amplitude scale so intensity=0.5 reproduces the official presets.
+            k = 2.0 * i
+            cycle = self.cycle
+
+            if self.animation == "circle":
+                self.state.isometric = 0.60
+                self.state.steady = 0.30
+                self.state.offset = (
+                    k * 0.50 * _math.sin(cycle + _math.pi / 2.0),
+                    k * 0.50 * _math.sin(cycle),
+                )
+            elif self.animation == "horizontal":
+                self.state.isometric = 0.60
+                self.state.steady = 0.30
+                self.state.offset = (k * 0.80 * _math.sin(cycle), 0.0)
+            elif self.animation == "vertical":
+                self.state.isometric = 0.60
+                self.state.steady = 0.30
+                self.state.offset = (0.0, k * 0.80 * _math.sin(cycle))
+            elif self.animation == "zoom":
+                self.state.height = 0.8 * (_math.sin(cycle / 2.0) ** 2.0)
+            elif self.animation == "dolly":
+                self.state.height = 0.30
+                self.state.steady = 0.35
+                self.state.focus = 0.35
+                self.state.zoom = 0.95
+                self.state.isometric = 0.5 * (1.0 - _math.cos(cycle))
+            elif self.animation == "orbital":
+                self.state.steady = 0.30
+                self.state.focus = 0.30
+                self.state.zoom = 0.98
+                self.state.isometric = 0.50 * _math.cos(cycle) + 0.75
+                self.state.offset = (k * 0.50 * _math.sin(cycle), 0.0)
+            else:  # pragma: no cover - guarded by request validation
+                raise ValueError(f"Unknown animation: {self.animation}")
+
+    return ParallaxScene(backend="headless", animation=animation, intensity=intensity)
 
 
 def _render_batch(
@@ -105,7 +101,9 @@ def _render_batch(
     """Render one parallax video per input image; returns the mp4 paths."""
     import numpy as np
 
-    scene = ParallaxScene(backend="headless", animation=animation, intensity=intensity)
+    from depthflow.state import DepthState
+
+    scene = _build_scene(animation, intensity)
     scene.ffmpeg.h264(preset="veryfast")
 
     outputs: list[Path] = []
@@ -143,25 +141,46 @@ def _render_batch(
 
 @app.get("/health")
 async def health() -> dict:
-    """Liveness probe with the wrapped DepthFlow version."""
-    return {"status": "ok", "depthflow": depthflow.__version__}
+    """Liveness probe with the wrapped DepthFlow version (if importable)."""
+    try:
+        import depthflow
+
+        version = depthflow.__version__
+    except Exception:  # pragma: no cover - depthflow absent in test/dev
+        version = None
+    return {"status": "ok", "depthflow": version}
 
 
 @app.post("/render")
 async def render(
     background_tasks: BackgroundTasks,
     image: Annotated[list[UploadFile], File(description="One or more input images")],
-    animation: Annotated[Animation, Form()] = "circle",
+    animation: Annotated[str, Form()] = "circle",
     intensity: Annotated[float, Form(ge=0.1, le=1.0)] = 0.5,
     time: Annotated[float, Form(ge=2.0, le=20.0)] = 5.0,
-    fps: Annotated[Literal[24, 30, 60], Form()] = 30,
-    height_px: Annotated[Literal[720, 1080, 1440, 1920], Form()] = 1080,
-    ssaa: Annotated[Literal[1, 1.5, 2], Form()] = 1,
+    # These arrive as multipart strings; declaring them as int/float lets
+    # FastAPI coerce them (a numeric Literal would reject the string and 422),
+    # then the allowed set is checked explicitly below.
+    fps: Annotated[int, Form()] = 30,
+    height_px: Annotated[int, Form()] = 1080,
+    ssaa: Annotated[float, Form()] = 1.0,
     invert_depth: Annotated[bool, Form()] = False,
 ) -> FileResponse:
     """Render parallax videos: one mp4 if a single image, else a zip of mp4s."""
     if not image:
         raise HTTPException(status_code=422, detail="At least one image is required")
+    if animation not in ANIMATIONS:
+        raise HTTPException(
+            status_code=422, detail=f"animation must be one of {', '.join(ANIMATIONS)}"
+        )
+    if fps not in FPS_CHOICES:
+        raise HTTPException(status_code=422, detail="fps must be 24, 30 or 60")
+    if height_px not in HEIGHT_CHOICES:
+        raise HTTPException(
+            status_code=422, detail="height_px must be 720, 1080, 1440 or 1920"
+        )
+    if ssaa not in SSAA_CHOICES:
+        raise HTTPException(status_code=422, detail="ssaa must be 1, 1.5 or 2")
 
     loop = asyncio.get_running_loop()
     async with _render_lock:

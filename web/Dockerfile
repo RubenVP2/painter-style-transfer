@@ -16,14 +16,10 @@ RUN npm ci
 FROM node:22-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
-# Next inline les NEXT_PUBLIC_* dans le bundle client AU BUILD : l'URL du
-# service parallaxe doit donc arriver ici, pas au runtime. docker-compose.yml
-# (racine) la passe ; sans elle, le client retombe sur http://localhost:8100.
-# La valeur par défaut est reprise ici plutôt que laissée vide : Next inline la
-# variable telle quelle, et une chaîne vide ne déclencherait pas le `??` du
-# client — elle donnerait une URL vide au lieu du repli local.
-ARG NEXT_PUBLIC_PARALLAX_URL=http://localhost:8100
-ENV NEXT_PUBLIC_PARALLAX_URL=${NEXT_PUBLIC_PARALLAX_URL}
+# L'URL du parallaxe n'est plus inlinée au build : le navigateur appelle
+# /api/parallax/* sur l'origine du studio, qui relaie côté serveur vers le
+# parallaxe par le réseau interne. L'adresse est donc une variable de RUNTIME
+# (`PARALLAX_INTERNAL_URL`, voir les compose), plus un build arg.
 COPY --from=deps /app/node_modules ./node_modules
 COPY web ./
 # scripts/sync-prompts.mjs (run by `prebuild`) copies these into src/content.

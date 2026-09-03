@@ -161,9 +161,11 @@ docker build -f web/Dockerfile -t wallpaper-mockup-studio .
 docker run --rm -p 3000:3000 wallpaper-mockup-studio
 ```
 
-L'URL du service parallaxe (`NEXT_PUBLIC_PARALLAX_URL`) est un **build arg** : Next inline les
-`NEXT_PUBLIC_*` dans le bundle client au build, une variable posée au runtime n'aurait aucun effet.
-Sans elle, le client vise `http://localhost:8100`.
+Le navigateur n'appelle pas le parallaxe directement : le panneau vidéo tape `/api/parallax/*` sur
+l'origine du studio, que des route handlers (`src/app/api/parallax/*`) relaient côté serveur vers le
+parallaxe. L'adresse interne est une variable de **runtime**, `PARALLAX_INTERNAL_URL` (défaut
+`http://localhost:8100` ; `http://parallax:8100` dans les compose) — plus aucun `NEXT_PUBLIC_*`
+figé au build.
 
 Build multi-stage sur `node:22-alpine`, sortie Next.js `standalone`, exécution sous un utilisateur
 non-root. Les exclusions de contexte vivent dans `web/Dockerfile.dockerignore` (BuildKit lit
@@ -191,7 +193,7 @@ d'environnement `NIXPACKS_NODE_VERSION=22`.
 Ce chemin ne voit pas `../prompts` : c'est la copie commitée dans `src/content/prompts/` qui alimente
 la page `/prompts`. Le service écoute sur `$PORT` (3000 par défaut). Il ne déploie pas non plus le
 service parallaxe — le panneau vidéo affichera son repli « service indisponible » tant que
-`NEXT_PUBLIC_PARALLAX_URL` ne pointe pas sur une instance joignable.
+`PARALLAX_INTERNAL_URL` ne pointe pas sur une instance joignable.
 
 ## Architecture
 
