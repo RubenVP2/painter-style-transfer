@@ -14,5 +14,13 @@ dependencies = [
     "python-multipart",
 ]
 
+[project.optional-dependencies]
+# `pip install -e '.[test]'` — the tests stub out the render so they run
+# without depthflow/torch (httpx backs FastAPI's TestClient).
+test = [
+    "pytest",
+    "httpx",
+]
+
 [tool.setuptools]
 py-modules = ["service"]

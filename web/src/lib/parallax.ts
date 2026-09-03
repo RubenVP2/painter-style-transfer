@@ -42,7 +42,10 @@ export const ANIMATIONS: { id: ParallaxAnimation; label: string }[] = [
   { id: "orbital", label: "Orbital" },
 ];
 
-export const PARALLAX_URL = process.env.NEXT_PUBLIC_PARALLAX_URL ?? "http://localhost:8100";
+// Same-origin: the Studio proxies these to the parallax service server-side
+// over the docker internal network (see src/app/api/parallax/*). The browser
+// never reaches parallax directly, so there is no cross-origin URL to inline.
+export const PARALLAX_URL = "/api/parallax";
 
 export const PARALLAX_HEALTH_INTERVAL_MS = 30_000;
 

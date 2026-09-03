@@ -1,30 +1,23 @@
 # Pile complète du dépôt, POUR LE LOCAL : le studio Next.js et le service parallaxe.
 #
-# Ce fichier publie ses ports sur l'hôte. Sur Dokploy, dont le Traefik tient
-# déjà les ports 80/443 et dont l'interface écoute sur le 3000, cela échoue
-# avec « Bind for 0.0.0.0:3000 failed: port is already allocated » — et publier
-# un port n'y sert à rien, Traefik joignant les conteneurs par son réseau.
-# Le déploiement utilise donc `docker-compose.dokploy.yml` : mêmes deux services,
-# mais `expose` au lieu de `ports` et le réseau `dokploy-network`.
+# Ce fichier publie le port du studio sur l'hôte. Sur Dokploy, dont le Traefik
+# tient déjà les ports 80/443 et dont l'interface écoute sur le 3000, cela
+# échoue avec « Bind for 0.0.0.0:3000 failed: port is already allocated » — et
+# publier un port n'y sert à rien, Traefik joignant les conteneurs par son
+# réseau. Le déploiement utilise donc `docker-compose.dokploy.yml`.
 #
 # Ce fichier vit à la RACINE parce que l'image du studio a besoin de `web/` et
 # de `prompts/`, et que celle du parallaxe a besoin de `parallax/` : un contexte
 # limité à `web/` ne peut pas construire la pile (c'est aussi ce que lit Dokploy
 # en type « Compose », qui clone tout le dépôt).
 #
-#   docker compose up --build          # studio sur :3000, parallaxe sur :8100
+#   docker compose up --build          # studio sur :3000
 #
-# Si l'un de ces deux ports est déjà pris sur la machine, `STUDIO_PORT` et
-# `PARALLAX_PORT` les décalent (voir `.env.example`).
-#
-# Les deux services parlent au navigateur, pas entre eux : c'est le bundle
-# client du studio qui appelle /health et /render du parallaxe. Le réseau
-# interne ne suffit donc pas — le parallaxe doit être joignable depuis le
-# navigateur, et son URL publique est figée dans le bundle AU BUILD
-# (`NEXT_PUBLIC_*` est inliné par Next), d'où le build arg ci-dessous.
-#
-# En local, les valeurs par défaut suffisent. En déploiement, ces deux variables
-# sont obligatoires — voir `docker-compose.dokploy.yml` et le README.
+# Le NAVIGATEUR n'appelle plus le parallaxe directement : il appelle
+# /api/parallax/* sur l'origine du studio, qui relaie CÔTÉ SERVEUR vers le
+# parallaxe par le réseau interne `painter` (`PARALLAX_INTERNAL_URL`). Le
+# parallaxe reste donc privé — pas de port obligatoire, pas de CORS. Son port
+# n'est publié ici que par commodité de debug (curl direct sur :8100).
 
 services:
   parallax:
@@ -32,10 +25,8 @@ services:
       context: ./parallax
     image: parallax-service
     restart: unless-stopped
-    environment:
-      # Origines autorisées par CORS : celles depuis lesquelles le studio est
-      # ouvert dans un navigateur. Séparées par des virgules.
-      PARALLAX_ALLOWED_ORIGINS: ${STUDIO_PUBLIC_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+    # Publié uniquement pour le debug local (curl http://localhost:8100/health).
+    # Le studio, lui, joint le parallaxe par le réseau interne, pas par ce port.
     ports:
       - "${PARALLAX_PORT:-8100}:8100"
     healthcheck:
@@ -58,11 +49,12 @@ services:
       # La racine du dépôt : l'image a besoin de `web/` ET de `prompts/`.
       context: .
       dockerfile: web/Dockerfile
-      args:
-        # Inliné dans le bundle client au build — voir l'en-tête de ce fichier.
-        NEXT_PUBLIC_PARALLAX_URL: ${PARALLAX_PUBLIC_URL:-http://localhost:8100}
     image: wallpaper-mockup-studio
     restart: unless-stopped
+    environment:
+      # URL du parallaxe telle que le STUDIO la joint côté serveur (réseau
+      # interne). Variable de runtime : la changer ne demande pas de rebuild.
+      PARALLAX_INTERNAL_URL: ${PARALLAX_INTERNAL_URL:-http://parallax:8100}
     depends_on:
       parallax:
         # Le studio démarre sans le parallaxe (le panneau affiche un repli),

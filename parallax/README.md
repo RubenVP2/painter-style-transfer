@@ -51,11 +51,26 @@ Build works on `linux/amd64` and `linux/arm64`.
 
 ## Configuration
 
-| Variable | Default | Role |
-|---|---|---|
-| `PARALLAX_ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Comma-separated CORS origins — the domains the Studio is opened from. The browser calls this service directly, so a deployed Studio domain has to be listed here. |
+None. The browser never calls this service directly — the Studio proxies
+`/api/parallax/*` to it server-side over the docker internal network — so there
+is no CORS to configure and no public domain to expose. The Studio finds it via
+its own `PARALLAX_INTERNAL_URL` (see the repository's compose files), not the
+other way around.
+
+## Tests
+
+The request/response path is covered without depthflow/torch (the render is
+stubbed), so the suite runs anywhere:
+
+```bash
+pip install -e '.[test]'
+pytest
+```
 
 ## curl examples
+
+The service also answers directly (handy for debugging when its port is
+published locally):
 
 Single image (circle, defaults):
 
