@@ -41,6 +41,8 @@ services:
     # `expose` documente le port d'écoute sans le réserver sur l'hôte.
     expose:
       - "8100"
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-warning}
     healthcheck:
       # python-slim n'a ni curl ni wget : l'interpréteur fait l'affaire.
       test:
@@ -69,6 +71,7 @@ services:
       # réseau `dokploy-network`. Variable de runtime : pas de rebuild pour la
       # changer. Défaut = nom de service compose du parallaxe.
       PARALLAX_INTERNAL_URL: ${PARALLAX_INTERNAL_URL:-http://parallax:8100}
+      LOG_LEVEL: ${LOG_LEVEL:-warn}
     # Pas de `depends_on` sur la santé du parallaxe, contrairement au compose
     # local : en production le studio doit rester debout même quand le parallaxe
     # tombe (torch est gourmand, un OOM est plausible sur une petite VPS). Le

@@ -10,6 +10,8 @@ validation stays testable — without those heavy, GPU-oriented dependencies.
 """
 
 import asyncio
+import logging
+import os
 import shutil
 import tempfile
 import zipfile
@@ -18,6 +20,13 @@ from typing import Annotated
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
+
+_log_level_name = os.getenv("LOG_LEVEL", "WARNING").upper()
+_log_level = getattr(logging, _log_level_name, logging.WARNING)
+logging.basicConfig(level=_log_level)
+logging.getLogger("uvicorn").setLevel(_log_level)
+logging.getLogger("uvicorn.access").setLevel(_log_level)
+logging.getLogger("uvicorn.error").setLevel(_log_level)
 
 app = FastAPI(title="parallax-service", version="0.1.0")
 
