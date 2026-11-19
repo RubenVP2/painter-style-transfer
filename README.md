@@ -11,6 +11,7 @@ Six prompts img2img soignés · un studio web pour créer des mockups de fonds d
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38BDF8?logo=tailwindcss&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Python-009688?logo=fastapi&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 <img src="docs/screenshots/studio.webp" alt="Wallpaper Mockup Studio : un wallpaper affiché sur un écran verrouillé d'iPhone, sur fond flouté" width="900">
 
@@ -135,6 +136,10 @@ Pour mettre la pile en production derrière un reverse proxy (exemple avec Dokpl
 cd web && npm run lint && npm run typecheck && npm run test:e2e
 cd parallax && pytest
 ```
+
+## 📄 Licence
+
+Distribué sous licence [MIT](LICENSE).
 
 ---
 
