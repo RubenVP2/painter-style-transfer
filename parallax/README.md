@@ -1,6 +1,6 @@
 # parallax-service
 
-FastAPI microservice wrapping [DepthFlow](https://github.com/Bing-Guo/DepthFlow):
+FastAPI microservice wrapping [DepthFlow](https://github.com/BrokenSource/DepthFlow):
 turns static images into 3D parallax videos (H.264 mp4).
 
 ## Endpoints
